@@ -8,6 +8,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <ctime>  // 添加时间相关头文件
+#include <unistd.h>
 
 // 前向声明
 struct TaskPoint;
@@ -33,6 +34,7 @@ struct TaskPoint
     double x, y;                // 任务点坐标
     double arrivalTime;         // 到达时间（>0表示额外需求点，=0表示初始需求点）
     int centerId;               // 所属配送中心ID
+    double weight{1.0};         // 物品重量（kg），默认1kg
 };
 
 // 车辆/无人机结构体
@@ -74,8 +76,8 @@ struct RouteNetwork
 struct DeliveryProblem
 {
     // 默认值定义
-    static constexpr double DEFAULT_DRONE_FUEL = 5.0;     // 无人机默认电池容量（时）
-    static constexpr double DEFAULT_DRONE_LOAD = 50.0;    // 无人机默认最大载重（kg）
+    static constexpr double DEFAULT_DRONE_FUEL = 5;     // 无人机默认电池容量改为5小时
+    static constexpr double DEFAULT_DRONE_LOAD = 20.0;    // 无人机默认最大载重（kg）
     static constexpr int DEFAULT_CENTER_ID = -1;           // 默认配送中心ID
 
     std::vector<TaskPoint> tasks;                    // 所有任务点列表

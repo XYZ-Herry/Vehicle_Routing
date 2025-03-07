@@ -26,11 +26,33 @@ void assignTasksToCenters(DeliveryProblem& problem) {
         // 计算到每个配送中心的距离
         for (size_t j = 0; j < problem.centers.size(); ++j) {
             const DistributionCenter& center = problem.centers[j];
-            // 计算欧几里得距离
             double dist = sqrt(pow(task.x - center.x, 2) + pow(task.y - center.y, 2));
             
-            // 更新最近的配送中心
-            if (dist < minDist) {
+            bool canAssign = true;  // 默认可以分配
+            
+            // 如果是无人机中心，检查是否能够到达
+            if (center.droneCount > 0) {
+                // 找到该中心的一架无人机来检查速度
+                double droneSpeed = 20.0;
+                // for (const auto& vehicle : problem.vehicles) {
+                //     if (vehicle.centerId == center.id && vehicle.maxLoad > 0) {
+                //         droneSpeed = vehicle.speed;
+                //         break;
+                //     }
+                // }
+                
+                if (droneSpeed > 0) {  // 确保找到了无人机
+                    // 计算往返时间
+                    //printf("%.2lf\n", dist);
+                    double timeNeeded = 2 * dist / droneSpeed;
+                    if (timeNeeded > DeliveryProblem::DEFAULT_DRONE_FUEL) {
+                        canAssign = false;  // 无人机无法到达
+                    }
+                }
+            }
+            
+            // 如果可以分配且距离更近，则更新最近中心
+            if (canAssign && dist < minDist) {
                 minDist = dist;
                 nearestCenter = j;
             }

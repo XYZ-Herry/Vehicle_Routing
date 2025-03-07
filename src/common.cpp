@@ -72,9 +72,10 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
                 x,      // 转换后的x坐标（公里）
                 y,      // 转换后的y坐标（公里）
                 0.0,    
-                DeliveryProblem::DEFAULT_CENTER_ID
+                DeliveryProblem::DEFAULT_CENTER_ID,
+                1.0     // 默认重量5kg
             };
-            cout << "任务点 " << id << ": (" << x << " km, " << y << " km)" << endl;
+            cout << "任务点 " << id << ": (" << x << " km, " << y << " km), 重量: 5 kg" << endl;
         }
 
         // 读取并创建车辆配送中心
@@ -121,8 +122,9 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             double latitude, longitude;
             int droneCount;
             file >> id >> longitude >> latitude >> droneCount;
+            droneMaxLoad = DeliveryProblem::DEFAULT_DRONE_LOAD; //这里先让无人机最大载重设置为默认值
             auto [x, y] = convertLatLongToXY(latitude, longitude);
-            
+
             problem.centers[vehicleCenterCount + i] = {
                 id, x, y,
                 0,          // vehicleCount
@@ -139,7 +141,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
                     droneSpeed,
                     droneCost,
                     droneMaxLoad,   // maxLoad>0表示无人机
-                    DeliveryProblem::DEFAULT_DRONE_FUEL,
+                    DeliveryProblem::DEFAULT_DRONE_FUEL,  // 使用默认电池容量
                     id
                 });
             }
@@ -156,10 +158,10 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             problem.tasks[initialDemandCount + i] = {
                 id, x, y,
                 time,
-                DeliveryProblem::DEFAULT_CENTER_ID
+                DeliveryProblem::DEFAULT_CENTER_ID,
+                1.0     // 默认重量5kg
             };
-            cout << "任务点 " << id << ": (" << x << " km, " << y << " km), " 
-                 << "到达时间: " << time << " h" << endl;
+            cout << "任务点 " << id << ": (" << x << " km, " << y << " km)" << endl;
         }
 
         cout << "\n=====================================" << endl;
@@ -208,16 +210,20 @@ void floydWarshall(RouteNetwork &network)
 // 计算两点间距离（根据车辆类型使用不同的距离计算方式）
 double getDistance(const TaskPoint &a, const TaskPoint &b, const RouteNetwork &network, bool isDrone)
 {
+    // 计算欧几里得距离（直线距离）
+    double euclideanDist = sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+    
     if (isDrone) {
-        // 无人机使用欧几里得距离
-        return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+        // 无人机直接使用欧几里得距离
+        return euclideanDist;
     } else {
-        // 车辆使用路网最短距离
+        // 车辆优先使用路网最短距离
         if (network.distances.count(a.id) && network.distances.at(a.id).count(b.id)) {
             return network.distances.at(a.id).at(b.id);
         }
-        // 如果路网中没有这两点间的距离，返回一个很大的值
-        return std::numeric_limits<double>::max();
+        // 如果路网中没有这两点间的距离，退化为使用欧几里得距离
+        // 这样保证车辆总能找到路径
+        return euclideanDist * 1.2;  // 乘以系数1.2表示非直线路径会稍长
     }
 }
 

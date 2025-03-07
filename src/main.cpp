@@ -2,6 +2,7 @@
 #include <vector>
 #include <limits>
 #include <string>
+#include <cmath>
 #include "common.h"
 #include "solver.h"
 
@@ -10,6 +11,53 @@ using std::pair;
 using std::cout;
 using std::endl;
 using std::string;
+
+// 计算配送中心到任务点的距离
+void printCenterToTaskDistances(const DeliveryProblem& problem) {
+    cout << "\n============ 配送中心到任务点的距离 ============" << endl;
+    
+    // 遍历每个配送中心
+    for (size_t i = 0; i < problem.centers.size(); ++i) {
+        const auto& center = problem.centers[i];
+        const auto& tasks = problem.centerAssignments[i];
+        
+        if (tasks.empty()) {
+            cout << "配送中心 " << center.id << " 没有分配任务点" << endl;
+            continue;
+        }
+        
+        cout << "配送中心 " << center.id << " (";
+        if (isDroneCenter(center)) {
+            cout << "无人机中心):";
+        } else {
+            cout << "车辆中心):";
+        }
+        
+        double totalDist = 0.0;
+        double maxDist = 0.0;
+        int maxDistTaskId = -1;
+        
+        // 计算到每个任务点的距离
+        for (int taskId : tasks) {
+            const auto& task = problem.tasks[taskId];
+            double dist = sqrt(pow(task.x - center.x, 2) + pow(task.y - center.y, 2));
+            totalDist += dist;
+            
+            cout << "\n  任务点 " << task.id << ": " << dist << " km";
+            
+            // 记录最远距离
+            if (dist > maxDist) {
+                maxDist = dist;
+                maxDistTaskId = task.id;
+            }
+        }
+        
+        double avgDist = totalDist / tasks.size();
+        cout << "\n  平均距离: " << avgDist << " km";
+        cout << "\n  最远任务点: " << maxDistTaskId << "，距离: " << maxDist << " km";
+        cout << "\n------------------------------" << endl;
+    }
+}
 
 int main(int argc, char* argv[])
 {
@@ -64,6 +112,9 @@ int main(int argc, char* argv[])
         }
         cout << "\n";
     }
+    
+    // 输出每个配送中心到任务点的距离
+    printCenterToTaskDistances(problem);
 
     return 0;
 }

@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
-
+#include <cmath>
 
 using std::vector;
 using std::pair;
@@ -15,41 +15,74 @@ using std::cout;
 using std::endl;
 using std::max;
 
-// 优化所有车辆的配送路径
+// 优化所有车辆的路径
 vector<pair<vector<int>, vector<double>>> optimizeAllPaths(
-    DeliveryProblem& problem, 
-    const vector<pair<int, int>>& assignments)
+    const DeliveryProblem& problem,
+    const vector<pair<int, int>>& vehicleTaskAssignments)
 {
+    // 初始化结果数组
     vector<pair<vector<int>, vector<double>>> allPaths(problem.vehicles.size());
     
-    // 整理每个车辆的任务
-    unordered_map<int, vector<int>> vehicleAssignments;
-    for (const auto& [vehicleId, taskId] : assignments) {
-        vehicleAssignments[vehicleId].push_back(taskId);
+    // 整理每辆车分配到的任务
+    unordered_map<int, vector<int>> vehicleToTasks;
+    for (const auto &assignment : vehicleTaskAssignments) {
+        int vehicleId = assignment.first;
+        int taskId = assignment.second;
+        
+        // 将任务添加到对应车辆的分配列表
+        vehicleToTasks[vehicleId].push_back(taskId);
     }
     
-    // 为每个车辆优化路径
-    for (size_t i = 0; i < problem.vehicles.size(); ++i) {
-        if (vehicleAssignments.count(i) > 0) {
-            // 优化路径
-            auto path = optimizePathForVehicle(
-                vehicleAssignments[i], 
-                problem.tasks, 
-                problem.vehicles[i],
-                problem.network);
-            
-            // 计算完成时间
-            auto completionTimes = calculateCompletionTimes(
-                path, 
-                problem.tasks,
-                problem.vehicles[i],
-                problem.network);
-                
-            allPaths[i] = make_pair(path, completionTimes);
-        }
+    // 为每辆车优化路径
+    for (const auto &pair : vehicleToTasks) {
+        int vehicleId = pair.first;
+        const auto &assignedTasks = pair.second;
+        
+        // 调用路径优化函数，注意添加 centers 参数
+        vector<int> path = optimizePathForVehicle(
+            assignedTasks, 
+            problem.tasks, 
+            problem.vehicles[vehicleId], 
+            problem.network,
+            problem.centers);  // 添加 centers 参数
+        
+        // 计算完成时间
+        vector<double> completionTimes = calculateCompletionTimes(
+            path, 
+            problem.tasks, 
+            problem.vehicles[vehicleId], 
+            problem.network,
+            problem.centers);  // 添加 centers 参数
+        
+        // 保存结果
+        allPaths[vehicleId] = {path, completionTimes};
     }
     
     return allPaths;
+}
+
+// 计算总完成时间和总成本
+pair<double, double> calculateTotalTimeAndCost(
+    const DeliveryProblem& problem,
+    const vector<pair<vector<int>, vector<double>>>& allPaths)
+{
+    double totalTime = 0.0;
+    double totalCost = 0.0;
+    
+    for (size_t i = 0; i < allPaths.size(); ++i) {
+        if (!allPaths[i].first.empty()) {
+            // 更新最大完成时间
+            if (!allPaths[i].second.empty()) {
+                totalTime = std::max(totalTime, allPaths[i].second.back());
+            }
+            
+            // 计算运送成本（减去起点和终点的配送中心）
+            int actualTaskCount = allPaths[i].first.size() - 2;
+            totalCost += actualTaskCount * problem.vehicles[i].cost;
+        }
+    }
+    
+    return {totalTime, totalCost};
 }
 
 // 求解静态配送问题
@@ -119,29 +152,4 @@ vector<pair<vector<int>, vector<double>>> solveStaticProblem(DeliveryProblem& pr
     cout << "===========================================" << endl;
     
     return allPaths;
-}
-
-// 计算总完成时间和总成本
-pair<double, double> calculateTotalTimeAndCost(
-    const DeliveryProblem& problem,
-    const vector<pair<vector<int>, vector<double>>>& allPaths) 
-{
-    double totalCompletionTime = 0.0;
-    double totalCost = 0.0;
-    
-    // 遍历所有车辆的路径
-    for (int i = 0; i < problem.vehicles.size(); ++i) {
-        if (!allPaths[i].first.empty() && !allPaths[i].second.empty()) {
-            // 更新最大完成时间
-            double vehicleCompletionTime = allPaths[i].second.back();
-            totalCompletionTime = max(totalCompletionTime, vehicleCompletionTime);
-            
-            // 计算运送成本（只与货物数量有关）
-            // 路径中的任务点数量（不包括起点和终点的配送中心）
-            int taskCount = allPaths[i].first.size() - 2;
-            totalCost += problem.vehicles[i].cost * taskCount;
-        }
-    }
-    
-    return {totalCompletionTime, totalCost};
 } 

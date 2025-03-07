@@ -6,12 +6,12 @@
 #include <utility>
 #include <unordered_map>
 
-// 优化所有车辆的配送路径
+// 优化所有车辆的路径
 std::vector<std::pair<std::vector<int>, std::vector<double>>> optimizeAllPaths(
-    DeliveryProblem& problem, 
-    const std::vector<std::pair<int, int>>& assignments);
+    const DeliveryProblem& problem,
+    const std::vector<std::pair<int, int>>& vehicleTaskAssignments);
 
-// 完整的静态问题求解函数
+// 求解静态配送问题
 std::vector<std::pair<std::vector<int>, std::vector<double>>> solveStaticProblem(
     DeliveryProblem& problem);
 

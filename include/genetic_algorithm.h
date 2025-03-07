@@ -4,9 +4,18 @@
 #include "common.h"
 #include <vector>
 #include <utility>
-#include "path_optimizer.h"
 
-// 使用遗传算法优化每个配送中心内的车辆任务分配
+// 计算解的适应度
+double calculateFitness(
+    const std::vector<int>& solution,
+    const std::vector<int>& centerTasks,
+    const std::vector<TaskPoint>& tasks,
+    const std::vector<Vehicle>& vehicles,
+    const RouteNetwork& network,
+    double timeWeight,
+    const std::vector<DistributionCenter>& centers);
+
+// 遗传算法主函数
 std::vector<std::pair<int, int>> geneticAlgorithm(
     const std::vector<TaskPoint>& tasks,
     const std::vector<Vehicle>& vehicles,
@@ -15,14 +24,7 @@ std::vector<std::pair<int, int>> geneticAlgorithm(
     int generations,
     double mutationRate,
     const RouteNetwork& network,
-    double timeWeight);
-
-// 计算解的适应度
-double calculateFitness(const std::vector<int>& solution,
-                       const std::vector<int>& centerTasks,
-                       const std::vector<TaskPoint>& tasks,
-                       const std::vector<Vehicle>& vehicles,
-                       const RouteNetwork& network,
-                       double timeWeight);
+    double timeWeight
+);
 
 #endif
