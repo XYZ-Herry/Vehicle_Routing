@@ -13,22 +13,22 @@ using std::vector;
 using std::pair;
 using std::make_pair;
 using std::unordered_map;
+using std::numeric_limits;
 using std::sort;
 using std::cout;
 using std::endl;
 
-// 计算解的适应度（总成本 + 时间权重 * 完成时间）
+// 计算解的适应度
 double calculateFitness(
-    const std::vector<int>& solution,
-    const std::vector<int>& centerTasks,
-    const std::vector<TaskPoint>& tasks,
-    const std::vector<Vehicle>& vehicles,
-    const RouteNetwork& network,
-    double timeWeight,
-    const std::vector<DistributionCenter>& centers)
+    const vector<int>& solution,
+    const vector<int>& centerTasks,
+    const vector<TaskPoint>& tasks,
+    const vector<Vehicle>& vehicles,
+    const DeliveryProblem& problem,
+    double timeWeight)
 {
-    double maxCompletionTime = 0.0;  // 最晚完成时间
-    double totalCost = 0.0;          // 总运送成本
+    double maxCompletionTime = 0.0;
+    double totalCost = 0.0;
     unordered_map<int, vector<int>> vehicleAssignments;
 
     // 将任务分配给对应的车辆
@@ -40,46 +40,21 @@ double calculateFitness(
 
     // 计算每辆车的路径和完成时间
     for (const auto& [vehicleId, assignments] : vehicleAssignments) {
-        // 使用最近邻法优化路径
         vector<int> path = optimizePathForVehicle(
-            assignments, tasks, vehicles[vehicleId], network, centers);
+            assignments, tasks, vehicles[vehicleId], problem);
         
-        // 如果返回空路径，说明解不可行
         if (path.empty()) {
-            return std::numeric_limits<double>::max();  // 返回一个很大的惩罚值
+            return numeric_limits<double>::max();
         }
         
-        // 计算完成时间
         vector<double> completionTimes = calculateCompletionTimes(
-            path, tasks, vehicles[vehicleId], network, centers);
-            
+            path, tasks, vehicles[vehicleId], problem);
+        
         if (!completionTimes.empty()) {
-            double vehicleTime = completionTimes.back();
-            maxCompletionTime = std::max(maxCompletionTime, vehicleTime);
-            double distance = 0.0;
-            for (size_t i = 0; i < path.size() - 1; ++i) {
-                int p1 = path[i];
-                int p2 = path[i + 1];
-                if (p1 == vehicles[vehicleId].centerId || p2 == vehicles[vehicleId].centerId) {
-                    // 如果涉及配送中心，需要特殊处理距离计算
-                    double centerX = 0, centerY = 0;
-                    for (const auto& center : centers) {
-                        if (center.id == vehicles[vehicleId].centerId) {
-                            centerX = center.x;
-                            centerY = center.y;
-                            break;
-                        }
-                    }
-                    if (p1 == vehicles[vehicleId].centerId) {
-                        distance += sqrt(pow(tasks[p2].x - centerX, 2) + pow(tasks[p2].y - centerY, 2));
-                    } else {
-                        distance += sqrt(pow(tasks[p1].x - centerX, 2) + pow(tasks[p1].y - centerY, 2));
-                    }
-                } else {
-                    distance += getDistance(tasks[p1], tasks[p2], network, vehicles[vehicleId].maxLoad > 0);
-                }
-            }
-            totalCost += distance * vehicles[vehicleId].cost;
+            maxCompletionTime = std::max(maxCompletionTime, completionTimes.back());
+            
+            // 计算成本：单位成本 * 任务数量
+            totalCost += vehicles[vehicleId].cost * assignments.size();
         }
     }
 
@@ -88,31 +63,28 @@ double calculateFitness(
 
 // 遗传算法主函数
 vector<pair<int, int>> geneticAlgorithm(
-    const vector<TaskPoint>& tasks,
-    const vector<Vehicle>& vehicles,
-    const vector<DistributionCenter>& centers,
+    const DeliveryProblem& problem,
     int populationSize,
     int generations,
     double mutationRate,
-    const RouteNetwork& network,
     double timeWeight)
 {
     vector<pair<int, int>> finalAssignments;
     srand(time(0));  // 随机数初始化
 
     // 按配送中心分组处理任务
-    for (const auto& center : centers) {
+    for (const auto& center : problem.centers) {
         vector<int> centerTasks;      // 该中心负责的任务
         vector<int> centerVehicles;   // 该中心的车辆
 
         // 收集该中心的任务和车辆
-        for (size_t i = 0; i < tasks.size(); ++i) {
-            if (tasks[i].centerId == center.id) {
+        for (size_t i = 0; i < problem.tasks.size(); ++i) {
+            if (problem.tasks[i].centerId == center.id) {
                 centerTasks.push_back(i);
             }
         }
-        for (size_t i = 0; i < vehicles.size(); ++i) {
-            if (vehicles[i].centerId == center.id) {
+        for (size_t i = 0; i < problem.vehicles.size(); ++i) {
+            if (problem.vehicles[i].centerId == center.id) {
                 centerVehicles.push_back(i);
             }
         }
@@ -132,7 +104,8 @@ vector<pair<int, int>> geneticAlgorithm(
             }
             
             // 检查解的可行性
-            double fitness = calculateFitness(solution, centerTasks, tasks, vehicles, network, timeWeight, centers);
+            double fitness = calculateFitness(solution, centerTasks, 
+                problem.tasks, problem.vehicles, problem, timeWeight);
             if (fitness < std::numeric_limits<double>::max()) {
                 population.push_back(solution);
             }
@@ -151,7 +124,8 @@ vector<pair<int, int>> geneticAlgorithm(
 
             // 计算种群中每个个体的适应度
             for (const auto& individual : population) {
-                double fitness = calculateFitness(individual, centerTasks, tasks, vehicles, network, timeWeight, centers);
+                double fitness = calculateFitness(individual, centerTasks, 
+                    problem.tasks, problem.vehicles, problem, timeWeight);
                 fitnessPopulation.push_back({fitness, individual});
             }
 
@@ -181,11 +155,13 @@ vector<pair<int, int>> geneticAlgorithm(
                 }
                 
                 // 检查子代的可行性
-                if (calculateFitness(child1, centerTasks, tasks, vehicles, network, timeWeight, centers) < std::numeric_limits<double>::max()) {
+                if (calculateFitness(child1, centerTasks, 
+                    problem.tasks, problem.vehicles, problem, timeWeight) < std::numeric_limits<double>::max()) {
                     newPopulation.push_back(child1);
                 }
                 if (newPopulation.size() < populationSize && 
-                    calculateFitness(child2, centerTasks, tasks, vehicles, network, timeWeight, centers) < std::numeric_limits<double>::max()) {
+                    calculateFitness(child2, centerTasks, 
+                        problem.tasks, problem.vehicles, problem, timeWeight) < std::numeric_limits<double>::max()) {
                     newPopulation.push_back(child2);
                 }
             }
@@ -197,10 +173,12 @@ vector<pair<int, int>> geneticAlgorithm(
                     int oldVehicle = individual[taskIndex];
                     do {
                         individual[taskIndex] = centerVehicles[rand() % centerVehicles.size()];
-                    } while (calculateFitness(individual, centerTasks, tasks, vehicles, network, timeWeight, centers) >= std::numeric_limits<double>::max() &&
+                    } while (calculateFitness(individual, centerTasks, 
+                        problem.tasks, problem.vehicles, problem, timeWeight) >= std::numeric_limits<double>::max() &&
                             individual[taskIndex] != oldVehicle);
                     
-                    if (calculateFitness(individual, centerTasks, tasks, vehicles, network, timeWeight, centers) >= std::numeric_limits<double>::max()) {
+                    if (calculateFitness(individual, centerTasks, 
+                        problem.tasks, problem.vehicles, problem, timeWeight) >= std::numeric_limits<double>::max()) {
                         individual[taskIndex] = oldVehicle;  // 如果变异后不可行，恢复原值
                     }
                 }

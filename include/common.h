@@ -31,20 +31,20 @@ std::pair<double, double> convertLatLongToXY(double latitude, double longitude);
 struct TaskPoint
 {
     int id;                     // 任务点ID
-    double x, y;                // 任务点坐标
-    double arrivalTime;         // 到达时间（>0表示额外需求点，=0表示初始需求点）
+    double x, y;                // 坐标（公里）
+    double time;                // 出现时间（小时）
     int centerId;               // 所属配送中心ID
-    double weight{1.0};         // 物品重量（kg），默认1kg
+    double weight;              // 包裹重量（千克）
 };
 
 // 车辆/无人机结构体
 struct Vehicle
 {
     int id;                     // 车辆ID
-    double speed;               // 速度（公里/时）
-    double cost;                // 单个货物的运输成本（元）
-    double maxLoad;             // 最大载重（kg）
-    double fuel;                // 电池容量（时）
+    double speed;               // 速度（公里/小时）
+    double cost;                // 单位距离成本
+    double maxLoad;             // 最大载重（千克，0表示普通车辆）
+    double fuel;                // 电池容量（小时，仅用于无人机）
     int centerId;               // 所属配送中心ID
 };
 
@@ -76,27 +76,27 @@ struct RouteNetwork
 struct DeliveryProblem
 {
     // 默认值定义
-    static constexpr double DEFAULT_DRONE_FUEL = 5;     // 无人机默认电池容量改为5小时
-    static constexpr double DEFAULT_DRONE_LOAD = 20.0;    // 无人机默认最大载重（kg）
-    static constexpr int DEFAULT_CENTER_ID = -1;           // 默认配送中心ID
+    static constexpr double DEFAULT_DRONE_FUEL = 5.0;   // 默认无人机电池容量（小时）
+    static constexpr double DEFAULT_DRONE_LOAD = 10.0;   // 默认无人机最大载重（千克）
+    static constexpr int DEFAULT_CENTER_ID = -1;        // 默认配送中心ID
 
-    std::vector<TaskPoint> tasks;                    // 所有任务点列表
-    std::vector<DistributionCenter> centers;         // 所有配送中心列表
-    std::vector<Vehicle> vehicles;                   // 所有车辆和无人机列表
-    RouteNetwork network;                            // 路网信息
-    double timeWeight;                               // 时间权重（用于目标函数）
-    int initialDemandCount;                          // 初始需求点数量
-    int extraDemandCount;                            // 额外需求点数量
-    std::vector<std::vector<int>> centerAssignments; // 每个配送中心分配的任务ID列表
+    std::vector<TaskPoint> tasks;                       // 所有任务点
+    std::vector<Vehicle> vehicles;                      // 所有车辆（包括无人机）
+    std::vector<DistributionCenter> centers;            // 所有配送中心
+    RouteNetwork network;                               // 路网
+    double timeWeight;                                  // 时间权重
+    int initialDemandCount;                            // 初始需求点数量
+    int extraDemandCount;                              // 额外需求点数量
+    std::vector<std::vector<int>> centerAssignments;   // 每个配送中心分配的任务ID列表
+    
+    // 存储所有点的坐标（ID -> 坐标）
+    std::unordered_map<int, std::pair<double, double>> coordinates;
 };
 
 // 工具函数声明
-
 bool loadProblemData(const std::string &filename, DeliveryProblem &problem);
-
-// 计算两点间距离的函数声明
-double getDistance(const TaskPoint &a, const TaskPoint &b, const RouteNetwork &network, bool isDrone);
-void floydWarshall(RouteNetwork &network);  // 添加 Floyd 算法函数声明
+double getDistance(int id1, int id2, const DeliveryProblem& problem, bool isDrone);
+void floydWarshall(RouteNetwork &network);
 
 // 判断配送中心类型的辅助函数
 inline bool isDroneCenter(const DistributionCenter& center) {

@@ -11,20 +11,15 @@ double calculateFitness(
     const std::vector<int>& centerTasks,
     const std::vector<TaskPoint>& tasks,
     const std::vector<Vehicle>& vehicles,
-    const RouteNetwork& network,
-    double timeWeight,
-    const std::vector<DistributionCenter>& centers);
+    const DeliveryProblem& problem,
+    double timeWeight);
 
 // 遗传算法主函数
 std::vector<std::pair<int, int>> geneticAlgorithm(
-    const std::vector<TaskPoint>& tasks,
-    const std::vector<Vehicle>& vehicles,
-    const std::vector<DistributionCenter>& centers,
+    const DeliveryProblem& problem,
     int populationSize,
     int generations,
     double mutationRate,
-    const RouteNetwork& network,
-    double timeWeight
-);
+    double timeWeight);
 
 #endif
