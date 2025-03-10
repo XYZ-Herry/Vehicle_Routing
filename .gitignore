@@ -2,4 +2,5 @@ build/
 *.o
 *.exe
 test/result.txt
+edit.txt
 route_map.png

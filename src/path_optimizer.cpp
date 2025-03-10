@@ -129,6 +129,32 @@ bool anyTaskUnvisited(const vector<bool>& visited, const vector<int>& tasks) {
     return false;
 }
 
+// 根据时间和路段判断是否处于高峰期，返回速度系数
+double getSpeedFactor(double currentTime, int fromId, int toId, const DeliveryProblem& problem) {
+    // 转换为小时数
+    double hour = currentTime;
+    
+    // 获取该路段的高峰期系数
+    auto it1 = problem.network.peakFactors.find(fromId);
+    if (it1 != problem.network.peakFactors.end()) {
+        auto it2 = it1->second.find(toId);
+        if (it2 != it1->second.end()) {
+            // 判断是否在早高峰（7:00-9:00）
+            if (hour >= 7.0 && hour <= 9.0) {
+                return it2->second.first;  // 早高峰系数
+            }
+            
+            // 判断是否在晚高峰（17:00-18:00）
+            if (hour >= 17.0 && hour <= 18.0) {
+                return it2->second.second;  // 晚高峰系数
+            }
+        }
+    }
+    
+    // 非高峰期或未找到特定路段系数
+    return 1.0;
+}
+
 // 计算某辆车路径上每个任务点的完成时间
 vector<double> calculateCompletionTimes(
     const vector<int> &path, 
@@ -141,22 +167,26 @@ vector<double> calculateCompletionTimes(
     }
     
     vector<double> completionTimes;
-    double currentTime = 0.0;
+    double currentTime = 0.0;  // 初始时间为0点
     double currentLoad = 0.0;
     int currentPos = vehicle.centerId;
     
     for (size_t i = 1; i < path.size(); ++i) {
         int nextPos = path[i];
         
-        // 计算从当前位置到下一位置的距离和时间
-        double dist = getDistance(
-            currentPos == vehicle.centerId ? vehicle.centerId : tasks[currentPos].id,
-            nextPos == vehicle.centerId ? vehicle.centerId : tasks[nextPos].id,
-            problem,
-            vehicle.maxLoad > 0
-        );
+        // 获取当前位置和下一位置的实际ID
+        int fromId = currentPos == vehicle.centerId ? vehicle.centerId : tasks[currentPos].id;
+        int toId = nextPos == vehicle.centerId ? vehicle.centerId : tasks[nextPos].id;
         
-        currentTime += dist / vehicle.speed;
+        // 计算从当前位置到下一位置的距离
+        double dist = getDistance(fromId, toId, problem, vehicle.maxLoad > 0);
+        
+        // 获取当前时间的速度系数
+        double speedFactor = getSpeedFactor(currentTime, fromId, toId, problem);
+        
+        // 考虑高峰期因素计算行驶时间
+        double travelTime = dist / (vehicle.speed * speedFactor);
+        currentTime += travelTime;
         
         if (nextPos == vehicle.centerId) {
             currentLoad = 0.0;

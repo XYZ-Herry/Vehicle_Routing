@@ -60,9 +60,11 @@ struct DistributionCenter
 // 边结构体
 struct Edge
 {
-    int node1;          // 起点ID
-    int node2;          // 终点ID
-    double length;      // 边长度
+    int node1;                  // 起点ID
+    int node2;                  // 终点ID
+    double length;              // 边长度
+    double morningPeakFactor;   // 早高峰速度系数（7:00-9:00）
+    double eveningPeakFactor;   // 晚高峰速度系数（17:00-18:00）
 };
 
 // 路网信息
@@ -70,13 +72,16 @@ struct RouteNetwork
 {
     std::unordered_map<int, std::unordered_map<int, double>> distances; // 存储节点间最短距离
     std::vector<Edge> edges;                                            // 存储边信息
+    
+    // 存储路段的高峰期系数信息
+    std::unordered_map<int, std::unordered_map<int, std::pair<double, double>>> peakFactors; // 存储节点间高峰期系数 (morningFactor, eveningFactor)
 };
 
 // 配送问题信息
 struct DeliveryProblem
 {
     // 默认值定义
-    static constexpr double DEFAULT_DRONE_FUEL = 5.0;   // 默认无人机电池容量（小时）
+    static constexpr double DEFAULT_DRONE_FUEL = 1.0;   // 默认无人机电池容量（小时）
     static constexpr double DEFAULT_DRONE_LOAD = 10.0;   // 默认无人机最大载重（千克）
     static constexpr int DEFAULT_CENTER_ID = -1;        // 默认配送中心ID
 
@@ -91,6 +96,10 @@ struct DeliveryProblem
     
     // 存储所有点的坐标（ID -> 坐标）
     std::unordered_map<int, std::pair<double, double>> coordinates;
+
+    // 高峰时段参数
+    double morningPeakFactor = 0.3;  // 早高峰速度系数（7:00-9:00）
+    double eveningPeakFactor = 0.3;  // 晚高峰速度系数（17:00-18:00）
 };
 
 // 工具函数声明
@@ -106,5 +115,12 @@ inline bool isDroneCenter(const DistributionCenter& center) {
 inline bool isVehicleCenter(const DistributionCenter& center) {
     return center.vehicleCount > 0;
 }
+
+// 输出配送中心到任务点的距离
+void printCenterToTaskDistances(const DeliveryProblem& problem);
+
+// 输出配送结果
+void printDeliveryResults(const DeliveryProblem& problem, 
+                          const std::vector<std::pair<std::vector<int>, std::vector<double>>>& allPaths);
 
 #endif

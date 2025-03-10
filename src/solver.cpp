@@ -86,5 +86,18 @@ vector<pair<vector<int>, vector<double>>> solveStaticProblem(DeliveryProblem& pr
         problem.timeWeight
     );
     
-    return optimizeAllPaths(problem, vehicleTaskAssignments);
+    auto allPaths = optimizeAllPaths(problem, vehicleTaskAssignments);
+    
+    // 计算最晚完成时间
+    double latestCompletionTime = 0.0;
+    for (const auto& [path, completionTimes] : allPaths) {
+        if (!completionTimes.empty()) {
+            latestCompletionTime = std::max(latestCompletionTime, completionTimes.back());
+        }
+    }
+    
+    // 输出最晚完成时间
+    cout << "静态阶段所有任务的最晚完成时间: " << latestCompletionTime << " 小时" << endl;
+    
+    return allPaths;
 } 
