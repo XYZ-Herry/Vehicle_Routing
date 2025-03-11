@@ -9,10 +9,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(SOURCES
     src/main.cpp
     src/common.cpp
+    src/task_assigner.cpp
     src/genetic_algorithm.cpp
     src/path_optimizer.cpp
     src/solver.cpp
-    src/task_assigner.cpp
+    src/dynamic_genetic.cpp
 )
 
 # 添加头文件目录

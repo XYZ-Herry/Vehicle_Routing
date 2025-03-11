@@ -105,7 +105,7 @@ struct DeliveryProblem
 // 工具函数声明
 bool loadProblemData(const std::string &filename, DeliveryProblem &problem);
 double getDistance(int id1, int id2, const DeliveryProblem& problem, bool isDrone);
-void floydWarshall(RouteNetwork &network);
+void floyd(RouteNetwork &network);
 
 // 判断配送中心类型的辅助函数
 inline bool isDroneCenter(const DistributionCenter& center) {
@@ -122,5 +122,11 @@ void printCenterToTaskDistances(const DeliveryProblem& problem);
 // 输出配送结果
 void printDeliveryResults(const DeliveryProblem& problem, 
                           const std::vector<std::pair<std::vector<int>, std::vector<double>>>& allPaths);
+
+// 输出动态阶段配送结果
+void printDynamicResults(
+    const DeliveryProblem& problem, 
+    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
+    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths);
 
 #endif

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iomanip>  // 用于设置输出精度
 #include <algorithm>  // 添加对 std::sort 的包含
+#include <unordered_map>  // 添加对 std::unordered_map 的包含
 using std::vector;
 using std::sqrt;
 using std::ifstream;
@@ -66,7 +67,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         }
 
         // 使用 Floyd-Warshall 算法计算所有点对最短路径
-        floydWarshall(problem.network);
+        floyd(problem.network);
 
         // 确保每个节点到自身的距离为0
         for (const auto& [nodeId, _] : problem.network.distances) {
@@ -195,52 +196,39 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
 }
 
 // Floyd-Warshall 算法计算所有点对最短路径
-void floydWarshall(RouteNetwork &network)
+void floyd(RouteNetwork &network)
 {
     // 收集所有节点ID
     std::vector<int> nodes;
-    for (const auto& [node, _] : network.distances) {
-        nodes.push_back(node);
+    for (const auto& pair : network.distances) {
+        nodes.push_back(pair.first);
     }
     
     // 节点数量
     int n = nodes.size();
 
-    // 初始化距离矩阵
-    // 确保每个节点到自身的距离为0
+    // 初始化距离矩阵 (确保每个点到自身的距离为0)
     for (int i = 0; i < n; i++) {
         network.distances[nodes[i]][nodes[i]] = 0.0;
     }
 
-    // 将不直接相连的节点对距离设为无穷大
-    const double INF = 1e9; // 使用一个很大的值代表无穷大
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            if (i != j && (!network.distances[nodes[i]].count(nodes[j]) || 
-                network.distances[nodes[i]][nodes[j]] == 0)) {
-                network.distances[nodes[i]][nodes[j]] = INF;
-            }
-        }
-    }
-    
     // 标准的Floyd-Warshall算法
     for (int k = 0; k < n; k++) {
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-                double throughK = network.distances[nodes[i]][nodes[k]] + 
-                                  network.distances[nodes[k]][nodes[j]];
-                if (throughK < network.distances[nodes[i]][nodes[j]]) {
-                    network.distances[nodes[i]][nodes[j]] = throughK;
+                if (network.distances.count(nodes[i]) && 
+                    network.distances[nodes[i]].count(nodes[k]) &&
+                    network.distances.count(nodes[k]) && 
+                    network.distances[nodes[k]].count(nodes[j])) {
+                
+                    double throughK = network.distances[nodes[i]][nodes[k]] + 
+                                    network.distances[nodes[k]][nodes[j]];
+                    
+                    if (!network.distances[nodes[i]].count(nodes[j]) || 
+                        throughK < network.distances[nodes[i]][nodes[j]]) {
+                        network.distances[nodes[i]][nodes[j]] = throughK;
+                    }
                 }
-            }
-        }
-    }
-    
-    // 还原不可达的边为无穷大
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            if (network.distances[nodes[i]][nodes[j]] >= INF / 2) {
-                network.distances[nodes[i]].erase(nodes[j]);
             }
         }
     }
@@ -366,6 +354,8 @@ void printCenterToTaskDistances(const DeliveryProblem& problem) {
         }
     }
     cout << "\n=============================================================" << endl;
+    // std::cout << problem.network.distances.count(101) << ' ' <<  problem.network.distances.at(101).count(140) << "\n";
+    // std::cout << problem.network.distances.at(101).at(140) << "\n";
 }
 
 // 输出配送结果
@@ -452,6 +442,108 @@ void printDeliveryResults(const DeliveryProblem& problem,
             totalCost += vehicleCost;
             
             cout << "    配送任务数: " << tasksDelivered << ", 成本: " << vehicleCost << endl;
+        }
+    }
+    
+    cout << "\n▶ 总结统计:" << endl;
+    cout << "  总任务数: " << totalTasksDelivered << endl;
+    cout << "  最大完成时间: " << std::fixed << std::setprecision(3) << maxCompletionTime << " 小时" << endl;
+    cout << "  总配送成本: " << totalCost << endl;
+    cout << "\n=============================================================" << endl;
+}
+
+// 输出动态阶段配送结果
+void printDynamicResults(
+    const DeliveryProblem& problem, 
+    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
+    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths)
+{
+    cout << "\n=============================================================" << endl;
+    cout << "▶ 动态阶段配送结果" << endl;
+    cout << "=============================================================" << endl;
+    
+    // 统计不同指标
+    int totalTasksDelivered = 0;
+    double maxCompletionTime = 0.0;
+    double totalCost = 0.0;
+    
+    // 按配送中心组织车辆
+    std::unordered_map<int, std::vector<int>> centerVehicles;
+    for (size_t i = 0; i < problem.vehicles.size(); ++i) {
+        centerVehicles[problem.vehicles[i].centerId].push_back(i);
+    }
+    
+    // 显示每个中心的配送情况
+    for (const auto& center : problem.centers) {
+        int centerId = center.id;
+        
+        cout << "\n▶ 配送中心 " << centerId << " (";
+        cout << (isDroneCenter(center) ? "无人机中心" : "车辆中心") << "):" << endl;
+        
+        // 遍历该中心的所有车辆
+        for (int vehicleId : centerVehicles[centerId]) {
+            const auto& [path, completionTimes] = dynamicPaths[vehicleId];
+            const Vehicle& vehicle = problem.vehicles[vehicleId];
+            
+            if (path.empty() || path.size() <= 2) continue; // 跳过未分配任务的车辆
+            
+            cout << "  车辆 " << std::setw(3) << vehicleId << " (";
+            if (vehicle.maxLoad > 0) {
+                cout << "无人机, 载重: " << vehicle.maxLoad << "kg, 电池: " << vehicle.fuel << "h";
+            } else {
+                cout << "普通车辆";
+            }
+            cout << "):" << endl;
+            
+            // 输出配送路径序列
+            cout << "    任务序列: ";
+            for (size_t j = 0; j < path.size(); ++j) {
+                if (j > 0 && j < path.size() - 1) { // 跳过起点和终点的配送中心
+                    totalTasksDelivered++;
+                }
+                cout << path[j];
+                if (j < path.size() - 1) cout << " → ";
+            }
+            cout << endl;
+            
+            // 输出每个任务的完成时间
+            if (!completionTimes.empty()) {
+                cout << "    完成时间: ";
+                for (double time : completionTimes) {
+                    cout << std::fixed << std::setprecision(3) << std::setw(7) << time << " ";
+                    maxCompletionTime = std::max(maxCompletionTime, time);
+                }
+                cout << endl;
+            }
+            
+            // 计算成本
+            int tasksDelivered = path.size() - 2; // 减去起点和终点的配送中心
+            double vehicleCost = tasksDelivered * vehicle.cost;
+            totalCost += vehicleCost;
+            
+            cout << "    配送任务数: " << tasksDelivered << ", 成本: " << vehicleCost << endl;
+            
+            // 计算与静态阶段的对比
+            const auto& [staticPath, staticTimes] = staticPaths[vehicleId];
+            if (!staticPath.empty() && staticPath.size() > 2) {
+                double staticMaxTime = 0.0;
+                if (!staticTimes.empty()) {
+                    staticMaxTime = staticTimes.back();
+                }
+                
+                double timeChange = completionTimes.empty() ? 0 : (completionTimes.back() - staticMaxTime);
+                int taskChange = (path.size() - 2) - (staticPath.size() - 2);
+                
+                cout << "    与静态阶段相比: 时间";
+                if (timeChange > 0) cout << "增加 " << std::fixed << std::setprecision(3) << timeChange;
+                else cout << "减少 " << std::fixed << std::setprecision(3) << -timeChange;
+                
+                cout << "小时, 任务";
+                if (taskChange > 0) cout << "增加 " << taskChange;
+                else if (taskChange < 0) cout << "减少 " << -taskChange;
+                else cout << "无变化";
+                cout << endl;
+            }
         }
     }
     

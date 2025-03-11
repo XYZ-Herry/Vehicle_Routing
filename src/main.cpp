@@ -35,13 +35,30 @@ int main(int argc, char* argv[])
     }
     
     // 使用三阶段法求解静态配送问题
-    auto allPaths = solveStaticProblem(problem);
+    cout << "\n========== 静态阶段求解 ==========" << endl;
+    auto staticPaths = solveStaticProblem(problem);
     
-    // 输出配送结果详情
-    printDeliveryResults(problem, allPaths);
-
-    // 输出每个配送中心到任务点的距离信息
+    // 计算静态阶段的最大完成时间
+    double staticMaxTime = 0.0;
+    for (const auto& [path, times] : staticPaths) {
+        if (!times.empty()) {
+            staticMaxTime = std::max(staticMaxTime, times.back());
+        }
+    }
+    
+    // 输出静态阶段配送结果详情
+    printDeliveryResults(problem, staticPaths);
     printCenterToTaskDistances(problem);
-
+    
+    // 求解动态阶段问题
+    cout << "\n========== 动态阶段求解 ==========" << endl;
+    cout << "静态阶段最大完成时间 T = " << staticMaxTime << " 小时" << endl;
+    
+    auto dynamicPaths = solveDynamicProblem(problem, staticPaths, staticMaxTime);
+    
+    // 输出动态阶段配送结果详情
+    cout << "\n========== 动态阶段结果 ==========" << endl;
+    printDeliveryResults(problem, dynamicPaths);
+    
     return 0;
 }

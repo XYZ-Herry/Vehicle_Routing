@@ -20,4 +20,18 @@ std::pair<double, double> calculateTotalTimeAndCost(
     const DeliveryProblem& problem,
     const std::vector<std::pair<std::vector<int>, std::vector<double>>>& allPaths);
 
+// 求解动态配送问题
+std::vector<std::pair<std::vector<int>, std::vector<double>>> solveDynamicProblem(
+    DeliveryProblem& problem,
+    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
+    double staticMaxTime);
+
+// 识别需要重新安排的任务
+void identifyTasksForRescheduling(
+    const DeliveryProblem& problem,
+    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
+    double staticMaxTime,
+    std::vector<int>& delayedTasks,
+    std::vector<int>& newTasks);
+
 #endif // SOLVER_H 

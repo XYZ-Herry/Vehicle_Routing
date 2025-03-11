@@ -3,9 +3,13 @@
 #include <algorithm>
 #include <limits>
 #include <cmath>
+#include <unordered_map>
+#include <iterator>
 
 using std::vector;
 using std::numeric_limits;
+using std::unordered_map;
+using std::pair;
 
 // 使用最近邻法优化车辆的配送路径
 vector<int>  optimizePathForVehicle(
@@ -160,7 +164,8 @@ vector<double> calculateCompletionTimes(
     const vector<int> &path, 
     const vector<TaskPoint> &tasks,
     const Vehicle &vehicle,
-    const DeliveryProblem& problem)
+    const DeliveryProblem& problem,
+    bool considerTraffic)
 {
     if (path.empty()) {
         return {0.0};
@@ -181,10 +186,13 @@ vector<double> calculateCompletionTimes(
         // 计算从当前位置到下一位置的距离
         double dist = getDistance(fromId, toId, problem, vehicle.maxLoad > 0);
         
-        // 获取当前时间的速度系数
-        double speedFactor = getSpeedFactor(currentTime, fromId, toId, problem);
+        // 仅动态阶段考虑高峰期因素
+        double speedFactor = 1.0;  // 默认无交通影响
+        if (considerTraffic) {
+            speedFactor = getSpeedFactor(currentTime, fromId, toId, problem);
+        }
         
-        // 考虑高峰期因素计算行驶时间
+        // 计算行驶时间
         double travelTime = dist / (vehicle.speed * speedFactor);
         currentTime += travelTime;
         
@@ -203,4 +211,56 @@ vector<double> calculateCompletionTimes(
     }
     
     return completionTimes;
+}
+
+// 优化动态阶段的所有路径
+vector<std::pair<vector<int>, vector<double>>> optimizeDynamicPaths(
+    const DeliveryProblem& problem,
+    const vector<pair<int, int>>& dynamicAssignments,
+    const vector<pair<vector<int>, vector<double>>>& staticPaths)
+{
+    // 不再使用静态路径，直接按遗传算法的分配构建
+    
+    // 按车辆收集所有分配的任务
+    unordered_map<int, vector<int>> vehicleTasks;
+    for (const auto& [vehicleId, taskId] : dynamicAssignments) {
+        vehicleTasks[vehicleId].push_back(taskId);
+    }
+    
+    // 为每个车辆创建优化路径
+    vector<std::pair<vector<int>, vector<double>>> dynamicPaths(problem.vehicles.size());
+    
+    // 为每个车辆优化路径
+    for (size_t vehicleId = 0; vehicleId < problem.vehicles.size(); ++vehicleId) {
+        // 获取车辆所属配送中心ID
+        int centerId = problem.vehicles[vehicleId].centerId;
+        
+        // 检查该车辆是否有分配的任务
+        if (vehicleTasks.count(vehicleId) && !vehicleTasks[vehicleId].empty()) {
+            // 提取分配给该车辆的所有任务
+            const auto& tasks = vehicleTasks[vehicleId];
+            
+            // 优化路径
+            vector<int> path = optimizePathForVehicle(
+                tasks, problem.tasks, problem.vehicles[vehicleId], problem);
+            
+            // 如果路径优化成功
+            if (!path.empty()) {
+                // 计算考虑高峰期的完成时间
+                vector<double> times = calculateCompletionTimes(
+                    path, problem.tasks, problem.vehicles[vehicleId], problem, true);
+                
+                // 保存路径和完成时间
+                dynamicPaths[vehicleId] = {path, times};
+            } else {
+                // 路径优化失败，创建只有起点和终点的空路径
+                dynamicPaths[vehicleId] = {{centerId, centerId}, {0.0}};
+            }
+        } else {
+            // 该车辆没有任务，创建只有起点和终点的空路径
+            dynamicPaths[vehicleId] = {{centerId, centerId}, {0.0}};
+        }
+    }
+    
+    return dynamicPaths;
 }
