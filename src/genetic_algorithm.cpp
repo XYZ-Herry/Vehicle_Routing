@@ -75,19 +75,15 @@ vector<pair<int, int>> geneticAlgorithm(
     // 按配送中心分组处理任务
     for (const auto& center : problem.centers) {
         vector<int> centerTasks;      // 该中心负责的任务
-        vector<int> centerVehicles;   // 该中心的车辆
 
-        // 收集该中心的任务和车辆
+        // 收集该中心的任务
         for (size_t i = 0; i < problem.tasks.size(); ++i) {
             if (problem.tasks[i].centerId == center.id) {
                 centerTasks.push_back(i);
             }
         }
-        for (size_t i = 0; i < problem.vehicles.size(); ++i) {
-            if (problem.vehicles[i].centerId == center.id) {
-                centerVehicles.push_back(i);
-            }
-        }
+        // 直接使用 center.vehicles
+        const vector<int>& centerVehicles = center.vehicles;
 
         if (centerTasks.empty() || centerVehicles.empty()) continue;
 

@@ -55,6 +55,7 @@ struct DistributionCenter
     double x, y;                // 配送中心坐标
     int vehicleCount;           // 普通车辆数量
     int droneCount;             // 无人机数量
+    std::vector<int> vehicles;  // 所属车辆/无人机的ID列表
 };
 
 // 边结构体
@@ -92,7 +93,7 @@ struct DeliveryProblem
     double timeWeight;                                  // 时间权重
     int initialDemandCount;                            // 初始需求点数量
     int extraDemandCount;                              // 额外需求点数量
-    std::vector<std::vector<int>> centerAssignments;   // 每个配送中心分配的任务ID列表
+    std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> centerAssignments;   // 每个配送中心分配的任务ID列表
     
     // 存储所有点的坐标（ID -> 坐标）
     std::unordered_map<int, std::pair<double, double>> coordinates;
@@ -100,6 +101,9 @@ struct DeliveryProblem
     // 高峰时段参数
     double morningPeakFactor = 0.3;  // 早高峰速度系数（7:00-9:00）
     double eveningPeakFactor = 0.3;  // 晚高峰速度系数（17:00-18:00）
+
+    // 在 DeliveryProblem 中添加
+    std::unordered_map<int, int> centerIdToIndex; // 中心ID到索引的映射
 };
 
 // 工具函数声明
