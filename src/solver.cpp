@@ -162,13 +162,13 @@ void identifyTasksForRescheduling(
     }
     
     // 检查每个车辆的路径，找出在高峰期会延迟的任务
-    for (size_t vehicleId = 0; vehicleId < staticPaths.size(); ++vehicleId) {
-        const auto& [path, staticTimes] = staticPaths[vehicleId];
+    for (size_t vehicleIndex = 0; vehicleIndex < staticPaths.size(); ++vehicleIndex) {
+        const auto& [path, staticTimes] = staticPaths[vehicleIndex];
         if (path.empty()) continue;
         
         // 重新计算考虑高峰期的完成时间
         vector<double> dynamicTimes = calculateCompletionTimes(
-            path, problem.tasks, problem.vehicles[vehicleId], problem, true);
+            path, problem.tasks, problem.vehicles[vehicleIndex], problem, true);
         
         // 比较每个任务点，找出延迟的任务
         for (size_t i = 0; i < std::min(staticTimes.size(), dynamicTimes.size()); ++i) {

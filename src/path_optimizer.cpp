@@ -219,8 +219,6 @@ vector<std::pair<vector<int>, vector<double>>> optimizeDynamicPaths(
     const vector<pair<int, int>>& dynamicAssignments,
     const vector<pair<vector<int>, vector<double>>>& staticPaths)
 {
-    // 不再使用静态路径，直接按遗传算法的分配构建
-    
     // 按车辆收集所有分配的任务
     unordered_map<int, vector<int>> vehicleTasks;
     for (const auto& [vehicleId, taskId] : dynamicAssignments) {
@@ -231,34 +229,33 @@ vector<std::pair<vector<int>, vector<double>>> optimizeDynamicPaths(
     vector<std::pair<vector<int>, vector<double>>> dynamicPaths(problem.vehicles.size());
     
     // 为每个车辆优化路径
-    for (size_t vehicleId = 0; vehicleId < problem.vehicles.size(); ++vehicleId) {
-        // 获取车辆所属配送中心ID
-        int centerId = problem.vehicles[vehicleId].centerId;
+    for (size_t vehicleIndex = 0; vehicleIndex < problem.vehicles.size(); ++vehicleIndex) {
+        int centerId = problem.vehicles[vehicleIndex].centerId;
         
         // 检查该车辆是否有分配的任务
-        if (vehicleTasks.count(vehicleId) && !vehicleTasks[vehicleId].empty()) {
+        if (vehicleTasks.count(vehicleIndex) && !vehicleTasks[vehicleIndex].empty()) {
             // 提取分配给该车辆的所有任务
-            const auto& tasks = vehicleTasks[vehicleId];
+            const auto& tasks = vehicleTasks[vehicleIndex];
             
             // 优化路径
             vector<int> path = optimizePathForVehicle(
-                tasks, problem.tasks, problem.vehicles[vehicleId], problem);
+                tasks, problem.tasks, problem.vehicles[vehicleIndex], problem);
             
             // 如果路径优化成功
             if (!path.empty()) {
                 // 计算考虑高峰期的完成时间
                 vector<double> times = calculateCompletionTimes(
-                    path, problem.tasks, problem.vehicles[vehicleId], problem, true);
+                    path, problem.tasks, problem.vehicles[vehicleIndex], problem, true);
                 
                 // 保存路径和完成时间
-                dynamicPaths[vehicleId] = {path, times};
+                dynamicPaths[vehicleIndex] = {path, times};
             } else {
                 // 路径优化失败，创建只有起点和终点的空路径
-                dynamicPaths[vehicleId] = {{centerId, centerId}, {0.0}};
+                dynamicPaths[vehicleIndex] = {{centerId, centerId}, {0.0}};
             }
         } else {
             // 该车辆没有任务，创建只有起点和终点的空路径
-            dynamicPaths[vehicleId] = {{centerId, centerId}, {0.0}};
+            dynamicPaths[vehicleIndex] = {{centerId, centerId}, {0.0}};
         }
     }
     

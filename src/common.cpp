@@ -475,20 +475,20 @@ void printDynamicResults(
     for (int centerId : sortedCenterIds) {
         // 使用centerIdToIndex直接查找中心
         if (problem.centerIdToIndex.count(centerId)) {
-            int centerIdx = problem.centerIdToIndex.at(centerId);
-            const auto& center = problem.centers[centerIdx];
+            int centerIndex = problem.centerIdToIndex.at(centerId);
+            const auto& center = problem.centers[centerIndex];
             
             cout << "\n▶ 配送中心 " << centerId << " (";
             cout << (isDroneCenter(center) ? "无人机中心" : "车辆中心") << "):" << endl;
             
             // 直接遍历该中心的所有车辆
-            for (int vehicleId : center.vehicles) {
-                const auto& [path, completionTimes] = dynamicPaths[vehicleId];
-                const Vehicle& vehicle = problem.vehicles[vehicleId];
+            for (int vehicleIndex : center.vehicles) {
+                const auto& [path, completionTimes] = dynamicPaths[vehicleIndex];
+                const Vehicle& vehicle = problem.vehicles[vehicleIndex];
                 
                 if (path.empty() || path.size() <= 2) continue; // 跳过未分配任务的车辆
                 
-                cout << "  车辆 " << std::setw(3) << vehicleId << " (";
+                cout << "  车辆 " << std::setw(3) << vehicleIndex << " (";
                 if (vehicle.maxLoad > 0) {
                     cout << "无人机, 载重: " << vehicle.maxLoad << "kg, 电池: " << vehicle.fuel << "h";
                 } else {
@@ -525,7 +525,7 @@ void printDynamicResults(
                 cout << "    配送任务数: " << tasksDelivered << ", 成本: " << vehicleCost << endl;
                 
                 // 计算与静态阶段的对比
-                const auto& [staticPath, staticTimes] = staticPaths[vehicleId];
+                const auto& [staticPath, staticTimes] = staticPaths[vehicleIndex];
                 if (!staticPath.empty() && staticPath.size() > 2) {
                     double staticMaxTime = 0.0;
                     if (!staticTimes.empty()) {

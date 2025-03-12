@@ -30,11 +30,11 @@ void assignTasksToCenters(DeliveryProblem& problem) {
         
         // 寻找距离此任务点最近的配送中心
         double minDist = numeric_limits<double>::max();
-        int nearestCenter = -1;
+        int nearestCenterIndex = -1;
         
         // 计算到每个配送中心的距离
-        for (size_t j = 0; j < problem.centers.size(); ++j) {
-            const DistributionCenter& center = problem.centers[j];
+        for (size_t centerIndex = 0; centerIndex < problem.centers.size(); ++centerIndex) {
+            const DistributionCenter& center = problem.centers[centerIndex];
             double dist = getDistance(task.id, center.id, problem, 1);
             bool canAssign = true;  // 默认可以分配
             
@@ -49,14 +49,14 @@ void assignTasksToCenters(DeliveryProblem& problem) {
             // 如果可以分配且距离更近，则更新最近中心
             if (canAssign && dist < minDist) {
                 minDist = dist;
-                nearestCenter = j;
+                nearestCenterIndex = centerIndex;
             }
         }
         
         // 将任务分配给最近的配送中心
-        if (nearestCenter >= 0) {
-            centerTasks[nearestCenter].push_back(i);
-            task.centerId = problem.centers[nearestCenter].id;
+        if (nearestCenterIndex >= 0) {
+            centerTasks[nearestCenterIndex].push_back(i);
+            task.centerId = problem.centers[nearestCenterIndex].id;
         }
     }
     
