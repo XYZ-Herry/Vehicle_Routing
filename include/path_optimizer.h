@@ -6,13 +6,13 @@
 
 // 使用最近邻法优化车辆的配送路径
 std::vector<int> optimizePathForVehicle(
-    const std::vector<int> &assignedTasks, 
+    const std::vector<int> &assignedTaskIds,  // 任务ID列表
     const std::vector<TaskPoint> &tasks, 
     const Vehicle &vehicle,
     const DeliveryProblem& problem);
 
 // 辅助函数：检查是否还有未访问的任务点
-bool anyTaskUnvisited(const std::vector<bool>& visited, const std::vector<int>& tasks);
+bool anyTaskUnvisited(const std::vector<bool>& visited, const std::vector<int>& taskIds);
 
 // 根据时间和路段判断是否处于高峰期，返回速度系数
 double getSpeedFactor(double currentTime, int fromId, int toId, const DeliveryProblem& problem);

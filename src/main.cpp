@@ -34,9 +34,9 @@ int main(int argc, char* argv[])
         return 1;
     }
     
-    // 使用三阶段法求解静态配送问题
+    // 求解静态配送问题
     cout << "\n========== 静态阶段求解 ==========" << endl;
-    auto staticPaths = solveStaticProblem(problem);
+    auto staticPaths = solveStaticProblem(problem);//staticPaths 是一个包含所有车辆路径的向量，每个路径是一个包含任务ID的向量，以及每个任务的完成时间。
     
     // 计算静态阶段的最大完成时间
     double staticMaxTime = 0.0;
@@ -48,7 +48,6 @@ int main(int argc, char* argv[])
     
     // 输出静态阶段配送结果详情
     printDeliveryResults(problem, staticPaths);
-    printCenterToTaskDistances(problem);
     
     // 求解动态阶段问题
     cout << "\n========== 动态阶段求解 ==========" << endl;

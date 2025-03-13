@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-// 将任务点分配到最近的配送中心
+// 将任务点分配给最近的配送中心
 void assignTasksToCenters(DeliveryProblem& problem);
 
 #endif // TASK_ASSIGNER_H 

@@ -16,35 +16,35 @@ using std::cout;
 using std::endl;
 using std::max;
 
-// 优化所有车辆的路径
+// 优化所有车辆的路径 - 修改为使用任务ID
 vector<pair<vector<int>, vector<double>>> optimizeAllPaths(
     const DeliveryProblem& problem,
-    const vector<pair<int, int>>& vehicleTaskAssignments)
+    const vector<pair<int, int>>& vehicleTaskAssignments)  // (车辆索引, 任务ID)对
 {
     vector<pair<vector<int>, vector<double>>> allPaths(problem.vehicles.size());
     
-    unordered_map<int, vector<int>> vehicleToTasks;
+    unordered_map<int, vector<int>> vehicleToTaskIds;  // 车辆索引 -> 任务ID列表
     for (const auto &assignment : vehicleTaskAssignments) {
-        vehicleToTasks[assignment.first].push_back(assignment.second);
+        vehicleToTaskIds[assignment.first].push_back(assignment.second);  // assignment.second已经是任务ID
     }
     
-    for (const auto &pair : vehicleToTasks) {
-        int vehicleId = pair.first;
-        const auto &assignedTasks = pair.second;
+    for (const auto &pair : vehicleToTaskIds) {
+        int vehicleIndex = pair.first;
+        const auto &assignedTaskIds = pair.second;  // 这里存储的是任务ID
         
         vector<int> path = optimizePathForVehicle(
-            assignedTasks, 
+            assignedTaskIds,  // 传递任务ID列表
             problem.tasks, 
-            problem.vehicles[vehicleId], 
+            problem.vehicles[vehicleIndex], 
             problem);
         
         vector<double> completionTimes = calculateCompletionTimes(
-            path, 
+            path,  // path中存储的是任务点ID
             problem.tasks, 
-            problem.vehicles[vehicleId], 
+            problem.vehicles[vehicleIndex], 
             problem);
         
-        allPaths[vehicleId] = {path, completionTimes};
+        allPaths[vehicleIndex] = {path, completionTimes};
     }
     
     return allPaths;
@@ -109,43 +109,34 @@ vector<pair<vector<int>, vector<double>>> solveDynamicProblem(
     const vector<pair<vector<int>, vector<double>>>& staticPaths,
     double staticMaxTime)
 {
-    cout << "开始动态求解..." << endl;
-    // 1. 找出受高峰期影响而超时的任务和新增任务
-    vector<int> delayedTasks;     // 受高峰期影响超时的任务
-    vector<int> newTasks;         // 新增任务
-    
-    cout << "识别需要重新安排的任务..." << endl;
-    // 找出需要重新安排的任务
+    // 识别需要重新调度的任务
+    vector<int> delayedTasks, newTasks;
     identifyTasksForRescheduling(problem, staticPaths, staticMaxTime, delayedTasks, newTasks);
     
-    cout << "识别完成，延迟任务: " << delayedTasks.size() << ", 新任务: " << newTasks.size() << endl;
+    cout << "延迟任务数量: " << delayedTasks.size() << endl;
+    cout << "新增任务数量: " << newTasks.size() << endl;
     
-    // 如果没有需要重新安排的任务，直接返回静态结果
     if (delayedTasks.empty() && newTasks.empty()) {
-        cout << "没有任务需要重新安排，保持静态方案。" << endl;
+        cout << "没有需要重新调度的任务，直接使用静态解决方案" << endl;
         return staticPaths;
     }
     
-    cout << "开始动态遗传算法..." << endl;
-    // 2. 使用动态遗传算法重新安排任务
-    auto dynamicAssignments = dynamicGeneticAlgorithm(
-        problem,
-        staticPaths,
-        delayedTasks,
-        newTasks,
-        100,    // 种群大小
-        100,    // 迭代次数
-        0.1,    // 变异率
-        problem.timeWeight,
-        staticMaxTime
-    );
+    // 使用改进的动态遗传算法分配任务
+    vector<pair<int, int>> assignments = dynamicGeneticAlgorithm(
+        problem, staticPaths, delayedTasks, newTasks,
+        100,  // 种群大小
+        50,   // 迭代次数
+        0.1,  // 变异率
+        problem.timeWeight,  // 时间权重
+        staticMaxTime);
     
-    cout << "动态遗传算法完成，开始优化路径..." << endl;
-    // 3. 优化所有路径
-    auto dynamicPaths = optimizeDynamicPaths(problem, dynamicAssignments, staticPaths);
+    if (assignments.empty()) {
+        cout << "动态优化失败，继续使用静态解决方案" << endl;
+        return staticPaths;
+    }
     
-    cout << "动态路径优化完成" << endl;
-    return dynamicPaths;
+    // 优化所有车辆的路径
+    return optimizeDynamicPaths(problem, assignments, staticPaths);
 }
 
 // 识别需要重新安排的任务
@@ -158,7 +149,7 @@ void identifyTasksForRescheduling(
 {
     // 添加新增任务
     for (size_t i = problem.initialDemandCount; i < problem.tasks.size(); ++i) {
-        newTasks.push_back(i);
+        newTasks.push_back(problem.tasks[i].id);  // 添加任务ID而不是索引
     }
     
     // 检查每个车辆的路径，找出在高峰期会延迟的任务
@@ -173,10 +164,10 @@ void identifyTasksForRescheduling(
         // 比较每个任务点，找出延迟的任务
         for (size_t i = 0; i < std::min(staticTimes.size(), dynamicTimes.size()); ++i) {
             if (dynamicTimes[i] > staticMaxTime && staticTimes[i] <= staticMaxTime) {
-                // 找到路径中对应的任务点索引
+                // 找到路径中对应的任务点ID (不是索引)
                 if (i + 1 < path.size()) {  // 确保索引在范围内
-                    int taskIndex = path[i + 1]; // +1 因为第一个是配送中心
-                    delayedTasks.push_back(taskIndex);
+                    int taskId = path[i + 1]; // +1 因为第一个是配送中心
+                    delayedTasks.push_back(taskId); // 这里存的是任务ID
                 }
             }
         }

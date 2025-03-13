@@ -15,30 +15,33 @@ using std::unordered_set;
 using std::cout;
 using std::endl;
 
-// 动态阶段适应度计算
+// 动态阶段适应度计算 - 确保使用任务ID
 double calculateDynamicFitness(
-    const vector<int>& solution,
-    const vector<int>& allTasks,
+    const vector<int>& solution,        // 存储车辆ID
+    const vector<int>& allTaskIds,      // 存储任务ID
     const vector<TaskPoint>& tasks,
     const vector<Vehicle>& vehicles,
     const DeliveryProblem& problem,
     double timeWeight,
     double staticMaxTime)
 {
-    // 检查解的基本有效性
-    for (size_t i = 0; i < allTasks.size(); ++i) {
-        int vehicleIndex = solution[i];
-        if (vehicleIndex < 0 || vehicleIndex >= vehicles.size()) {
-            return std::numeric_limits<double>::max();  // 无效的车辆索引
+    // 使用映射检查车辆ID有效性
+    for (size_t i = 0; i < allTaskIds.size(); ++i) {
+        int vehicleId = solution[i];
+        if (problem.vehicleIdToIndex.count(vehicleId) == 0) {
+            return std::numeric_limits<double>::max();  // 无效的车辆ID
         }
     }
     
     // 转换为optimizeDynamicPaths所需的格式：vehicle-task对列表
     vector<pair<int, int>> assignments;
-    for (size_t i = 0; i < allTasks.size(); ++i) {
-        int vehicleIndex = solution[i];
-        int taskId = allTasks[i];
-        assignments.push_back({vehicleIndex, taskId});
+    for (size_t i = 0; i < allTaskIds.size(); ++i) {
+        int vehicleId = solution[i];
+        int taskId = allTaskIds[i];
+        
+        // 使用映射直接获取车辆索引
+        int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
+        assignments.push_back({vehicleIndex, taskId});  // (车辆索引, 任务ID)
     }
     
     // 使用optimizeDynamicPaths优化路径
@@ -52,36 +55,30 @@ double calculateDynamicFitness(
     
     for (size_t vehicleIndex = 0; vehicleIndex < optimizedPaths.size(); ++vehicleIndex) {
         const auto& [path, completionTimes] = optimizedPaths[vehicleIndex];
+        if (path.size() <= 2) continue;  // 跳过没有任务的路径
         
-        // 跳过空路径或只有起点和终点的路径
-        if (path.size() <= 2) continue;
+        // 记录任务数量
+        tasksAssigned += path.size() - 2;  // 减去起点和终点的配送中心
         
-        // 计算该车辆实际配送的任务数
-        int vehicleTasks = path.size() - 2;  // 减去起点和终点
-        tasksAssigned += vehicleTasks;
-        
-        // 更新最大完成时间
+        // 计算完成时间和成本
         if (!completionTimes.empty()) {
             maxCompletionTime = std::max(maxCompletionTime, completionTimes.back());
+            totalCost += problem.vehicles[vehicleIndex].cost * (path.size() - 2);
         }
-        
-        // 计算该车辆的成本
-        totalCost += vehicles[vehicleIndex].cost * vehicleTasks;
     }
     
-    // 检查是否所有任务都被成功分配
-    if (tasksAssigned < allTasks.size()) {
-        return std::numeric_limits<double>::max();  // 不是所有任务都能被分配，解无效
+    // 如果没有分配任务，返回无穷大
+    if (tasksAssigned == 0) {
+        return std::numeric_limits<double>::max();
     }
     
-    // 考虑超过静态时间的惩罚
-    double timePenalty = 0.0;
-    if (maxCompletionTime > staticMaxTime) {
-        timePenalty = (maxCompletionTime - staticMaxTime) * 2.0;  // 惩罚因子
-    }
+    // 考虑静态阶段的最大完成时间因素
+    double dynamicTimePenalty = (maxCompletionTime > staticMaxTime) ? 
+                               (maxCompletionTime - staticMaxTime) * 1.5 : 0.0;
     
-    // 计算加权适应度
-    return timeWeight * (maxCompletionTime + timePenalty) + (1.0 - timeWeight) * totalCost;
+    // 计算加权适应度值
+    return timeWeight * (maxCompletionTime + dynamicTimePenalty) + 
+           (1.0 - timeWeight) * totalCost;
 }
 
 // 改进的动态遗传算法，所有任务参与遗传
@@ -110,17 +107,39 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
     // 记录静态任务的原始分配信息
     struct TaskInfo {
         int centerId;    // 所属中心
-        int vehicleIndex;   // 原始车辆
+        int vehicleId;   // 原始车辆ID（不是索引）
     };
     unordered_map<int, TaskInfo> staticTaskInfo;
     
+    if (1)  // 添加新任务和延迟任务前验证它们在任务数组中存在
+    {
+        vector<int> allTasksToVerify;
+
+        // 收集所有可能的任务ID（包括延迟任务和新任务）
+        for (int taskId : delayedTasks) allTasksToVerify.push_back(taskId);
+        for (int taskId : newTasks) allTasksToVerify.push_back(taskId);
+
+        // 验证这些任务ID是否存在
+        for (auto it = flexibleTasks.begin(); it != flexibleTasks.end();) {
+            int taskId = *it;
+            if (problem.taskIdToIndex.count(taskId) == 0) {
+                std::cout << "警告: ID为 " << taskId << " 的任务未在问题定义中找到，将被忽略" << std::endl;
+                it = flexibleTasks.erase(it);  // 从flexibleTasks中移除
+            } else {
+                ++it;
+            }
+        }
+    }
+    
     // 收集所有任务
-    vector<int> allTasks;
+    vector<int> allTaskIds;
     
     // 从静态路径中提取任务和分配信息
     for (size_t vehicleIndex = 0; vehicleIndex < staticPaths.size(); ++vehicleIndex) {
         const auto& path = staticPaths[vehicleIndex].first;
         if (path.size() <= 2) continue;
+        
+        int vehicleId = problem.vehicles[vehicleIndex].id;  // 获取车辆ID
         
         for (size_t i = 1; i < path.size() - 1; ++i) {
             int taskId = path[i];
@@ -130,13 +149,13 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
                 continue;
             }
             
-            allTasks.push_back(taskId);
+            allTaskIds.push_back(taskId);
             
             // 如果不是延迟任务，记录其原始分配信息
             if (!flexibleTasks.count(taskId)) {
                 staticTaskInfo[taskId] = {
                     problem.vehicles[vehicleIndex].centerId,
-                    (int)vehicleIndex
+                    vehicleId  // 使用车辆ID而不是索引
                 };
             }
         }
@@ -145,41 +164,47 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
     // 添加新任务，确保不包含配送中心ID
     for (int taskId : newTasks) {
         if (!centerIds.count(taskId)) {
-            allTasks.push_back(taskId);
+            allTaskIds.push_back(taskId);
         }
     }
     
     // 打印任务数量信息，方便调试
-    cout << "动态优化任务数: " << allTasks.size() 
-         << " (原始非延迟: " << (allTasks.size() - flexibleTasks.size()) 
+    cout << "动态优化任务数: " << allTaskIds.size() 
+         << " (原始非延迟: " << (allTaskIds.size() - flexibleTasks.size()) 
          << ", 延迟或新增: " << flexibleTasks.size() << ")" << endl;
     
     // 初始化种群
     vector<vector<int>> population;
     int attempts = 0;
-    int maxAttempts = populationSize * 10;
+    const int maxAttempts = 1000;
     
-    // 生成初始种群
+    // 收集所有可用的车辆ID
+    vector<int> allVehicleIds;
+    for (const auto& vehicle : problem.vehicles) {
+        allVehicleIds.push_back(vehicle.id);
+    }
+    
+    // 尝试生成初始种群
     while (population.size() < populationSize && attempts < maxAttempts) {
         attempts++;
-        vector<int> solution(allTasks.size());
+        vector<int> solution(allTaskIds.size());  // 存储车辆ID
         
         // 为每个任务分配车辆
-        for (size_t i = 0; i < allTasks.size(); ++i) {
-            int taskId = allTasks[i];
+        for (size_t i = 0; i < allTaskIds.size(); ++i) {
+            int taskId = allTaskIds[i];
             
             if (flexibleTasks.count(taskId)) {
-                // 延迟和新任务可以分配给任何车辆
-                solution[i] = rand() % problem.vehicles.size();
+                // 延迟和新任务可以分配给任何车辆，使用随机车辆ID
+                solution[i] = allVehicleIds[rand() % allVehicleIds.size()];
             } else {
-                // 静态任务保持原有分配
-                solution[i] = staticTaskInfo[taskId].vehicleIndex;
+                // 静态任务保持原有分配，使用车辆ID
+                solution[i] = staticTaskInfo[taskId].vehicleId;
             }
         }
         
         // 验证解的可行性
         double fitness = calculateDynamicFitness(
-            solution, allTasks, problem.tasks, 
+            solution, allTaskIds, problem.tasks, 
             problem.vehicles, problem, timeWeight, staticMaxTime);
             
         if (fitness < std::numeric_limits<double>::max()) {
@@ -199,7 +224,7 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
         // 计算适应度
         for (const auto& solution : population) {
             double fitness = calculateDynamicFitness(
-                solution, allTasks, problem.tasks, 
+                solution, allTaskIds, problem.tasks, 
                 problem.vehicles, problem, timeWeight, staticMaxTime);
             fitnessPopulation.push_back({fitness, solution});
         }
@@ -223,20 +248,20 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
             vector<int> child2 = fitnessPopulation[parent2Idx].second;
             
             // 单点交叉
-            int crossPoint = rand() % allTasks.size();
+            int crossPoint = rand() % allTaskIds.size();
             for (int j = 0; j < crossPoint; ++j) {
                 std::swap(child1[j], child2[j]);
             }
             
             
-            for (size_t i = 0; i < allTasks.size(); ++i) {
-                int taskId = allTasks[i];
+            for (size_t i = 0; i < allTaskIds.size(); ++i) {
+                int taskId = allTaskIds[i];
                 if (!flexibleTasks.count(taskId)) {// 修正非超时和新加任务的分配
                     int centerId = staticTaskInfo[taskId].centerId;
                     
                     auto correctVehicle = [&](vector<int>& solution, int idx) {
-                        int vehicleIndex = solution[idx];
-                        if (problem.vehicles[vehicleIndex].centerId != centerId) {
+                        int vehicleId = solution[idx];
+                        if (problem.vehicles[vehicleId].centerId != centerId) {
                             // 使用centerIdToIndex直接查找中心
                             if (problem.centerIdToIndex.count(centerId)) {
                                 int centerIdx = problem.centerIdToIndex.at(centerId);
@@ -258,7 +283,7 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
             // 验证并添加子代
             auto tryAddChild = [&](const vector<int>& child) {
                 double fitness = calculateDynamicFitness(
-                    child, allTasks, problem.tasks, 
+                    child, allTaskIds, problem.tasks, 
                     problem.vehicles, problem, timeWeight, staticMaxTime);
                 if (fitness < std::numeric_limits<double>::max()) {
                     newPopulation.push_back(child);
@@ -274,35 +299,19 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
         // 变异操作
         for (auto& solution : newPopulation) {
             if ((rand() % 100) < mutationRate * 100) {
-                int taskIdx = rand() % allTasks.size();
-                int taskId = allTasks[taskIdx];
-                int oldVehicleIndex = solution[taskIdx];
+                int taskIdx = rand() % allTaskIds.size();
+                int taskId = allTaskIds[taskIdx];
                 
                 if (flexibleTasks.count(taskId)) {
-                    // 延迟和新任务可以分配给任何车辆
-                    solution[taskIdx] = rand() % problem.vehicles.size();
-                } else {
-                    // 静态任务只能在原中心内变异
-                    int centerId = staticTaskInfo[taskId].centerId;
+                    // 只变异延迟和新任务
+                    int oldVehicleId = solution[taskIdx];
+                    solution[taskIdx] = allVehicleIds[rand() % allVehicleIds.size()];
                     
-                    // 使用centerIdToIndex直接查找中心
-                    if (problem.centerIdToIndex.count(centerId)) {
-                        int centerIdx = problem.centerIdToIndex.at(centerId);
-                        const auto& center = problem.centers[centerIdx];
-                        
-                        if (!center.vehicles.empty()) {
-                            solution[taskIdx] = center.vehicles[rand() % center.vehicles.size()];
-                        }
+                    // 如果变异后不可行，恢复原值
+                    if (calculateDynamicFitness(solution, allTaskIds, problem.tasks, 
+                        problem.vehicles, problem, timeWeight, staticMaxTime) >= std::numeric_limits<double>::max()) {
+                        solution[taskIdx] = oldVehicleId;
                     }
-                }
-                
-                // 验证变异结果
-                double fitness = calculateDynamicFitness(
-                    solution, allTasks, problem.tasks, 
-                    problem.vehicles, problem, timeWeight, staticMaxTime);
-                    
-                if (fitness >= std::numeric_limits<double>::max()) {
-                    solution[taskIdx] = oldVehicleIndex;  // 恢复无效的变异
                 }
             }
         }
@@ -314,20 +323,28 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
     vector<pair<double, vector<int>>> finalPopulation;
     for (const auto& solution : population) {
         double fitness = calculateDynamicFitness(
-            solution, allTasks, problem.tasks, 
+            solution, allTaskIds, problem.tasks, 
             problem.vehicles, problem, timeWeight, staticMaxTime);
         finalPopulation.push_back({fitness, solution});
     }
     
     sort(finalPopulation.begin(), finalPopulation.end());
     
-    vector<pair<int, int>> assignments;//车辆索引-任务
+    // 构建最终分配结果
+    vector<pair<int, int>> assignments;  // (车辆索引, 任务ID)对
     if (!finalPopulation.empty()) {
         const auto& bestSolution = finalPopulation[0].second;
-        for (size_t i = 0; i < allTasks.size(); ++i) {
-            assignments.push_back({bestSolution[i], allTasks[i]});
+        for (size_t i = 0; i < allTaskIds.size(); ++i) {
+            int vehicleId = bestSolution[i];
+            int taskId = allTaskIds[i];
+            
+            // 使用映射直接获取车辆索引
+            if (problem.vehicleIdToIndex.count(vehicleId) > 0) {
+                int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
+                assignments.push_back({vehicleIndex, taskId});
+            }
         }
     }
     
-    return assignments;
+    return assignments;  // 返回(车辆索引, 任务ID)对
 } 

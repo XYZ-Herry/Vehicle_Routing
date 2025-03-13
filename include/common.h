@@ -93,7 +93,6 @@ struct DeliveryProblem
     double timeWeight;                                  // 时间权重
     int initialDemandCount;                            // 初始需求点数量
     int extraDemandCount;                              // 额外需求点数量
-    std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> centerAssignments;   // 每个配送中心分配的任务ID列表
     
     // 存储所有点的坐标（ID -> 坐标）
     std::unordered_map<int, std::pair<double, double>> coordinates;
@@ -102,8 +101,15 @@ struct DeliveryProblem
     double morningPeakFactor = 0.3;  // 早高峰速度系数（7:00-9:00）
     double eveningPeakFactor = 0.3;  // 晚高峰速度系数（17:00-18:00）
 
-    // 在 DeliveryProblem 中添加
-    std::unordered_map<int, int> centerIdToIndex; // 中心ID到索引的映射
+    // ID 到索引的映射
+    std::unordered_map<int, int> centerIdToIndex;    // 中心ID到索引的映射
+    std::unordered_map<int, int> taskIdToIndex;      // 任务ID到索引的映射
+    std::unordered_map<int, int> vehicleIdToIndex;   // 车辆ID到索引的映射
+    
+    // 索引到ID的反向映射（如果需要）
+    std::unordered_map<int, int> indexToTaskId;      // 索引到任务ID的映射
+    std::unordered_map<int, int> indexToVehicleId;   // 索引到车辆ID的映射
+    std::unordered_map<int, int> indexToCenterId;    // 索引到中心ID的映射
 };
 
 // 工具函数声明
@@ -119,9 +125,6 @@ inline bool isDroneCenter(const DistributionCenter& center) {
 inline bool isVehicleCenter(const DistributionCenter& center) {
     return center.vehicleCount > 0;
 }
-
-// 输出配送中心到任务点的距离
-void printCenterToTaskDistances(const DeliveryProblem& problem);
 
 // 输出配送结果
 void printDeliveryResults(const DeliveryProblem& problem, 

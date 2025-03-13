@@ -54,11 +54,6 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             double morningPeakFactor = 0.3;
             double eveningPeakFactor = 0.3;
             
-            // 如果输入文件提供了高峰期系数
-            // if (file.peek() != '\n') {
-            //     file >> morningPeakFactor >> eveningPeakFactor;
-            // }
-            
             problem.network.edges[i] = {node1, node2, length, morningPeakFactor, eveningPeakFactor};
             problem.network.distances[node1][node2] = length;
             problem.network.distances[node2][node1] = length;
@@ -70,13 +65,6 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
 
         // 使用 Floyd-Warshall 算法计算所有点对最短路径
         floyd(problem.network);
-
-        // 确保每个节点到自身的距离为0
-        for (const auto& [nodeId, _] : problem.network.distances) {
-            if (problem.network.distances.count(nodeId)) {
-                problem.network.distances.at(nodeId)[nodeId] = 0.0;
-            }
-        }
 
         // 初始化任务点容器
         problem.tasks.resize(initialDemandCount + extraDemandCount);
@@ -104,7 +92,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         // 读取车辆配送中心
         cout << "\n车辆配送中心坐标:" << endl;
         problem.centers.resize(vehicleCenterCount + droneCenterCount);
-        int vehicleIdCounter = 0;
+        int vehicleIdCounter = 1;  // 从1开始
         
         for (int i = 0; i < vehicleCenterCount; ++i)
         {
@@ -123,12 +111,12 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             for (int j = 0; j < vehicleCount; ++j)
             {
                 problem.vehicles.push_back({
-                    vehicleIdCounter,
+                    vehicleIdCounter,//车辆ID
                     vehicleSpeed,
                     vehicleCost,
                     0.0,    // maxLoad=0表示普通车辆
                     0.0,    // 普通车辆无燃料限制
-                    id
+                    id //这里的id是配送中心ID
                 });
                 problem.centers[i].vehicles.push_back(vehicleIdCounter); // 记录车辆ID
                 vehicleIdCounter++;
@@ -197,6 +185,17 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         // 在读取中心数据后添加
         for (size_t i = 0; i < problem.centers.size(); ++i) {
             problem.centerIdToIndex[problem.centers[i].id] = i;
+            problem.indexToCenterId[i] = problem.centers[i].id;
+        }
+        
+        for (size_t i = 0; i < problem.tasks.size(); i++) {
+            problem.taskIdToIndex[problem.tasks[i].id] = i;
+            problem.indexToTaskId[i] = problem.tasks[i].id;
+        }
+        
+        for (size_t i = 0; i < problem.vehicles.size(); i++) {
+            problem.vehicleIdToIndex[problem.vehicles[i].id] = i;
+            problem.indexToVehicleId[i] = problem.vehicles[i].id;
         }
         
         return true;
@@ -208,7 +207,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
     }
 }
 
-// Floyd-Warshall 算法计算所有点对最短路径
+// Floyd算法计算所有点对最短路径
 void floyd(RouteNetwork &network)
 {
     // 收集所有节点ID
@@ -289,82 +288,6 @@ std::pair<double, double> convertLatLongToXY(double latitude, double longitude) 
     return {x, y};
 }
 
-// 输出配送中心到任务点的距离
-void printCenterToTaskDistances(const DeliveryProblem& problem) {
-    cout << "\n================== 配送中心到任务点距离信息 ==================" << endl;
-    
-    // 收集所有中心ID并排序（不需要额外建映射）
-    std::vector<int> sortedCenterIds;
-    for (const auto& center : problem.centers) {
-        sortedCenterIds.push_back(center.id);
-    }
-    std::sort(sortedCenterIds.begin(), sortedCenterIds.end());
-
-    // 遍历每个配送中心
-    for (int centerId : sortedCenterIds) {
-        // 查找配送中心信息
-        const DistributionCenter* center = nullptr;
-        for (const auto& c : problem.centers) {
-            if (c.id == centerId) {
-                center = &c;
-                break;
-            }
-        }
-        
-        if (!center) continue;
-        
-        cout << "\n▶ 配送中心 " << centerId << " (";
-        cout << (isDroneCenter(*center) ? "无人机中心" : "车辆中心") << "):" << endl;
-        
-        // 直接遍历该中心的所有车辆
-        for (int vehicleId : center->vehicles) {
-            if (problem.centerAssignments.count(vehicleId)) {
-                const auto& assignment = problem.centerAssignments.at(vehicleId);
-                const auto& path = assignment.first;
-                const auto& completionTimes = assignment.second;
-                const Vehicle& vehicle = problem.vehicles[vehicleId];
-                
-                if (path.empty() || path.size() <= 2) continue; // 跳过未分配任务的车辆
-                
-                cout << "  车辆 " << std::setw(3) << vehicleId << " (";
-                if (vehicle.maxLoad > 0) {
-                    cout << "无人机, 载重: " << vehicle.maxLoad << "kg, 电池: " << vehicle.fuel << "h";
-                } else {
-                    cout << "普通车辆";
-                }
-                cout << "):" << endl;
-                
-                // 输出配送路径序列
-                cout << "    任务序列: ";
-                for (size_t j = 0; j < path.size(); ++j) {
-                    if (j > 0 && j < path.size() - 1) { // 跳过起点和终点的配送中心
-                        cout << path[j];
-                        if (j < path.size() - 1) cout << " → ";
-                    }
-                }
-                cout << endl;
-                
-                // 输出每个任务的完成时间
-                if (!completionTimes.empty()) {
-                    cout << "    完成时间: ";
-                    for (double time : completionTimes) {
-                        cout << std::fixed << std::setprecision(3) << std::setw(7) << time << " ";
-                    }
-                    cout << endl;
-                }
-                
-                // 计算成本
-                int tasksDelivered = path.size() - 2; // 减去起点和终点的配送中心
-                double vehicleCost = tasksDelivered * vehicle.cost;
-                cout << "    配送任务数: " << tasksDelivered << ", 成本: " << vehicleCost << endl;
-            }
-        }
-    }
-    cout << "\n=============================================================" << endl;
-    // std::cout << problem.network.distances.count(101) << ' ' <<  problem.network.distances.at(101).count(140) << "\n";
-    // std::cout << problem.network.distances.at(101).at(140) << "\n";
-}
-
 // 输出配送结果
 void printDeliveryResults(const DeliveryProblem& problem, 
                          const std::vector<std::pair<std::vector<int>, std::vector<double>>>& allPaths) {
@@ -397,14 +320,21 @@ void printDeliveryResults(const DeliveryProblem& problem,
         cout << "\n▶ 配送中心 " << centerId << " (";
         cout << (isDroneCenter(*center) ? "无人机中心" : "车辆中心") << "):" << endl;
         
-        // 直接遍历该中心的所有车辆
+        // 遍历该中心的所有车辆
         for (int vehicleId : center->vehicles) {
-            const auto& [path, completionTimes] = allPaths[vehicleId];
-            const Vehicle& vehicle = problem.vehicles[vehicleId];
+            // 将车辆ID转换为索引
+            int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
+            const auto& [path, completionTimes] = allPaths[vehicleIndex];
+            const Vehicle& vehicle = problem.vehicles[vehicleIndex];
             
-            if (path.empty() || path.size() <= 2) continue; // 跳过未分配任务的车辆
+            if (vehicle.id <= 0 || vehicle.id > 10000) {  // 添加合理的范围检查
+                std::cerr << "警告: 发现无效的车辆ID: " << vehicle.id << std::endl;
+                continue;
+            }
             
-            cout << "  车辆 " << std::setw(3) << vehicleId << " (";
+            if (path.empty() || path.size() <= 2) continue;
+            
+            cout << "  车辆 " << std::setw(3) << vehicle.id << " (";
             if (vehicle.maxLoad > 0) {
                 cout << "无人机, 载重: " << vehicle.maxLoad << "kg, 电池: " << vehicle.fuel << "h";
             } else {
@@ -475,8 +405,8 @@ void printDynamicResults(
     for (int centerId : sortedCenterIds) {
         // 使用centerIdToIndex直接查找中心
         if (problem.centerIdToIndex.count(centerId)) {
-            int centerIndex = problem.centerIdToIndex.at(centerId);
-            const auto& center = problem.centers[centerIndex];
+            int centerIdx = problem.centerIdToIndex.at(centerId);
+            const auto& center = problem.centers[centerIdx];
             
             cout << "\n▶ 配送中心 " << centerId << " (";
             cout << (isDroneCenter(center) ? "无人机中心" : "车辆中心") << "):" << endl;
@@ -486,9 +416,14 @@ void printDynamicResults(
                 const auto& [path, completionTimes] = dynamicPaths[vehicleIndex];
                 const Vehicle& vehicle = problem.vehicles[vehicleIndex];
                 
-                if (path.empty() || path.size() <= 2) continue; // 跳过未分配任务的车辆
+                if (vehicle.id <= 0 || vehicle.id > 10000) {  // 添加合理的范围检查
+                    std::cerr << "警告: 发现无效的车辆ID: " << vehicle.id << std::endl;
+                    continue;
+                }
                 
-                cout << "  车辆 " << std::setw(3) << vehicleIndex << " (";
+                if (path.empty() || path.size() <= 2) continue;
+                
+                cout << "  车辆 " << std::setw(3) << vehicle.id << " (";
                 if (vehicle.maxLoad > 0) {
                     cout << "无人机, 载重: " << vehicle.maxLoad << "kg, 电池: " << vehicle.fuel << "h";
                 } else {

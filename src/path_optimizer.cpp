@@ -1,6 +1,7 @@
 #include "path_optimizer.h"
 #include "common.h"
 #include <algorithm>
+#include <iostream>
 #include <limits>
 #include <cmath>
 #include <unordered_map>
@@ -12,110 +13,61 @@ using std::unordered_map;
 using std::pair;
 
 // 使用最近邻法优化车辆的配送路径
-vector<int>  optimizePathForVehicle(
-    const vector<int> &assignedTasks, 
+vector<int> optimizePathForVehicle(
+    const vector<int> &assignedTaskIds,  // 任务ID列表
     const vector<TaskPoint> &tasks, 
     const Vehicle &vehicle,
     const DeliveryProblem& problem)
 {
-    if (assignedTasks.empty()) {
-        return {vehicle.centerId};
+    // 如果没有分配任务，只返回起点和终点
+    if (assignedTaskIds.empty()) {
+        return {vehicle.centerId, vehicle.centerId};
     }
 
-    vector<int> path;
-    vector<bool> visited(tasks.size());
     int centerId = vehicle.centerId;
-    double currentLoad = 0.0;
-    double remainingFuel = vehicle.fuel;
+    
+    // 使用贪心算法（最近邻法）构建路径
+    vector<int> path;
+    vector<bool> visited(assignedTaskIds.size(), false);
+    
+    // 从配送中心开始
+    path.push_back(centerId);
     int currentPos = centerId;
     
-    path.push_back(centerId);
-    
-    while (true) {
-        double minDist = numeric_limits<double>::max();
-        int nextTask = -1;
-        bool allTasksNeedReturn = true;
-
-        for (int taskIndex : assignedTasks) {
-            if (!visited[taskIndex]) {
-                // 计算到达该点的距离和时间
-                double dist = getDistance(
-                    currentPos == centerId ? centerId : tasks[currentPos].id,
-                    tasks[taskIndex].id,
+    // 根据距离选择下一个访问点，直到所有点都被访问
+    while (anyTaskUnvisited(visited, assignedTaskIds)) {
+        double minDistance = std::numeric_limits<double>::max();
+        int nextIndex = -1;
+        int nextId = -1;
+        
+        for (size_t i = 0; i < assignedTaskIds.size(); i++) {
+            if (!visited[i]) {
+                int taskId = assignedTaskIds[i];
+                
+                // 直接使用任务ID计算距离
+                double distance = getDistance(
+                    currentPos, 
+                    taskId, 
                     problem,
-                    vehicle.maxLoad > 0
-                );
+                    vehicle.maxLoad > 0);
                 
-                double timeNeeded = dist / vehicle.speed;
-                bool canVisitDirectly = true;
-                
-                if (vehicle.maxLoad > 0) {
-                    if (currentLoad + tasks[taskIndex].weight > vehicle.maxLoad) {
-                        canVisitDirectly = false;
-                    }
-
-                    if (timeNeeded > remainingFuel) {
-                        canVisitDirectly = false;
-                    }
-                    
-                    // 计算返回配送中心的距离
-                    double returnDist = getDistance(
-                        tasks[taskIndex].id,
-                        centerId,
-                        problem,
-                        true
-                    );
-                    double returnTime = returnDist / vehicle.speed;
-                    
-                    if (timeNeeded + returnTime > remainingFuel) {
-                        canVisitDirectly = false;
-                    }
-                }
-                
-                if (canVisitDirectly) {
-                    allTasksNeedReturn = false;
-                    if (dist < minDist) {
-                        minDist = dist;
-                        nextTask = taskIndex;
-                    }
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nextIndex = i;
+                    nextId = taskId;
                 }
             }
         }
-
-        if (allTasksNeedReturn && anyTaskUnvisited(visited, assignedTasks)) {
-            path.push_back(centerId);
-            currentLoad = 0.0;
-            remainingFuel = vehicle.fuel;
-            currentPos = centerId;
-            continue;
-        }
-
-        if (nextTask != -1) {
-            visited[nextTask] = true;
-            path.push_back(nextTask);
-            
-            if (vehicle.maxLoad > 0) {
-                currentLoad += tasks[nextTask].weight;
-                remainingFuel -= minDist / vehicle.speed;
-            }
-            currentPos = nextTask;
+        
+        if (nextIndex != -1) {
+            visited[nextIndex] = true;
+            path.push_back(nextId);
+            currentPos = nextId;
         } else {
-            break;
-        }
-    }
-
-    bool allVisited = true;
-    for (int taskIndex : assignedTasks) {
-        if (!visited[taskIndex]) {
-            allVisited = false;
-            break;
+            break;  // 无法找到下一个点，结束
         }
     }
     
-    if (!allVisited) {
-        return vector<int>();
-    }
-
     if (currentPos != centerId) {
         path.push_back(centerId);
     }
@@ -124,9 +76,9 @@ vector<int>  optimizePathForVehicle(
 }
 
 // 辅助函数：检查是否还有未访问的任务点
-bool anyTaskUnvisited(const vector<bool>& visited, const vector<int>& tasks) {
-    for (int taskIndex : tasks) {
-        if (!visited[taskIndex]) {
+bool anyTaskUnvisited(const vector<bool>& visited, const vector<int>& taskIds) {
+    for (size_t i = 0; i < visited.size(); i++) {
+        if (!visited[i]) {
             return true;
         }
     }
@@ -161,7 +113,7 @@ double getSpeedFactor(double currentTime, int fromId, int toId, const DeliveryPr
 
 // 计算某辆车路径上每个任务点的完成时间
 vector<double> calculateCompletionTimes(
-    const vector<int> &path, 
+    const vector<int> &path,  // 路径中存储的是任务ID，不是索引
     const vector<TaskPoint> &tasks,
     const Vehicle &vehicle,
     const DeliveryProblem& problem,
@@ -172,38 +124,38 @@ vector<double> calculateCompletionTimes(
     }
     
     vector<double> completionTimes;
-    double currentTime = 0.0;  // 初始时间为0点
+    double currentTime = 0.0;
     double currentLoad = 0.0;
-    int currentPos = vehicle.centerId;
+    int currentPosId = path[0];  // 第一个位置是中心ID
     
     for (size_t i = 1; i < path.size(); ++i) {
-        int nextPos = path[i];
+        int nextPosId = path[i];  // 下一个位置ID
         
-        // 获取当前位置和下一位置的实际ID
-        int fromId = currentPos == vehicle.centerId ? vehicle.centerId : tasks[currentPos].id;
-        int toId = nextPos == vehicle.centerId ? vehicle.centerId : tasks[nextPos].id;
+        // 直接使用ID计算距离
+        double dist = getDistance(currentPosId, nextPosId, problem, vehicle.maxLoad > 0);
         
-        // 计算从当前位置到下一位置的距离
-        double dist = getDistance(fromId, toId, problem, vehicle.maxLoad > 0);
-        
-        // 仅动态阶段考虑高峰期因素
-        double speedFactor = 1.0;  // 默认无交通影响
+        // 考虑高峰期因素
+        double speedFactor = 1.0;
         if (considerTraffic) {
-            speedFactor = getSpeedFactor(currentTime, fromId, toId, problem);
+            speedFactor = getSpeedFactor(currentTime, currentPosId, nextPosId, problem);
         }
         
-        // 计算行驶时间
         double travelTime = dist / (vehicle.speed * speedFactor);
         currentTime += travelTime;
         
-        if (nextPos == vehicle.centerId) {
+        if (nextPosId == vehicle.centerId) {
             currentLoad = 0.0;
         } else {
-            currentLoad += tasks[nextPos].weight;
-            completionTimes.push_back(currentTime);
+            // 需要找到任务索引来访问任务属性
+            auto it = problem.taskIdToIndex.find(nextPosId);
+            if (it != problem.taskIdToIndex.end()) {
+                int taskIndex = it->second;
+                currentLoad += tasks[taskIndex].weight;
+                completionTimes.push_back(currentTime);
+            }
         }
         
-        currentPos = nextPos;
+        currentPosId = nextPosId;
     }
     
     if (completionTimes.empty()) {
@@ -216,13 +168,14 @@ vector<double> calculateCompletionTimes(
 // 优化动态阶段的所有路径
 vector<std::pair<vector<int>, vector<double>>> optimizeDynamicPaths(
     const DeliveryProblem& problem,
-    const vector<pair<int, int>>& dynamicAssignments,
+    const vector<pair<int, int>>& dynamicAssignments, // (车辆索引, 任务ID)对
     const vector<pair<vector<int>, vector<double>>>& staticPaths)
 {
-    // 按车辆收集所有分配的任务
-    unordered_map<int, vector<int>> vehicleTasks;
-    for (const auto& [vehicleId, taskId] : dynamicAssignments) {
-        vehicleTasks[vehicleId].push_back(taskId);
+    // 按车辆收集所有分配的任务ID
+    unordered_map<int, vector<int>> vehicleTaskIds; // 车辆索引 -> 任务ID列表
+    for (const auto& [vehicleIndex, taskId] : dynamicAssignments) {
+        // 直接使用任务ID
+        vehicleTaskIds[vehicleIndex].push_back(taskId);
     }
     
     // 为每个车辆创建优化路径
@@ -233,29 +186,38 @@ vector<std::pair<vector<int>, vector<double>>> optimizeDynamicPaths(
         int centerId = problem.vehicles[vehicleIndex].centerId;
         
         // 检查该车辆是否有分配的任务
-        if (vehicleTasks.count(vehicleIndex) && !vehicleTasks[vehicleIndex].empty()) {
-            // 提取分配给该车辆的所有任务
-            const auto& tasks = vehicleTasks[vehicleIndex];
+        if (vehicleTaskIds.count(vehicleIndex) && !vehicleTaskIds[vehicleIndex].empty()) {
+            // 提取分配给该车辆的所有任务ID
+            const auto& assignedTaskIds = vehicleTaskIds[vehicleIndex];
             
-            // 优化路径
+            // 使用最近邻算法优化路径
             vector<int> path = optimizePathForVehicle(
-                tasks, problem.tasks, problem.vehicles[vehicleIndex], problem);
+                assignedTaskIds,  // 传递任务ID
+                problem.tasks,
+                problem.vehicles[vehicleIndex],
+                problem
+            );
             
-            // 如果路径优化成功
-            if (!path.empty()) {
-                // 计算考虑高峰期的完成时间
-                vector<double> times = calculateCompletionTimes(
-                    path, problem.tasks, problem.vehicles[vehicleIndex], problem, true);
-                
-                // 保存路径和完成时间
-                dynamicPaths[vehicleIndex] = {path, times};
-            } else {
-                // 路径优化失败，创建只有起点和终点的空路径
-                dynamicPaths[vehicleIndex] = {{centerId, centerId}, {0.0}};
-            }
+            // 计算完成时间（考虑交通）
+            vector<double> completionTimes = calculateCompletionTimes(
+                path,  // path中存储的是任务点的ID
+                problem.tasks,
+                problem.vehicles[vehicleIndex], 
+                problem,
+                true  // 考虑交通影响
+            );
+            
+            dynamicPaths[vehicleIndex] = {path, completionTimes};
         } else {
-            // 该车辆没有任务，创建只有起点和终点的空路径
-            dynamicPaths[vehicleIndex] = {{centerId, centerId}, {0.0}};
+            // 该车辆没有任务，使用静态路径（如果有）
+            if (vehicleIndex < staticPaths.size()) {
+                dynamicPaths[vehicleIndex] = staticPaths[vehicleIndex];
+            } else {
+                // 创建只包含起点和终点的路径
+                vector<int> path = {centerId, centerId};
+                vector<double> times = {0.0, 0.0};
+                dynamicPaths[vehicleIndex] = {path, times};
+            }
         }
     }
     
