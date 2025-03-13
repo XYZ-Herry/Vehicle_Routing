@@ -16,12 +16,12 @@ double calculateDynamicFitness(
     double timeWeight,
     double staticMaxTime);
 
-// 动态阶段的遗传算法
+// 改进的动态遗传算法，所有任务参与遗传 - 更新静态路径参数类型
 std::vector<std::pair<int, int>> dynamicGeneticAlgorithm(
     const DeliveryProblem& problem,
-    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
-    const std::vector<int>& delayedTasks,    // 任务ID列表
-    const std::vector<int>& newTasks,        // 任务ID列表
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
+    const std::vector<int>& delayedTasks,
+    const std::vector<int>& newTasks,
     int populationSize,
     int generations,
     double mutationRate,

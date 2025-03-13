@@ -1,4 +1,5 @@
 #include "common.h"
+#include "solver.h"  // 添加这一行以访问calculateTotalTimeAndCost函数
 #include <iostream>
 #include <iomanip>  // 用于设置输出精度
 #include <algorithm>  // 添加对 std::sort 的包含
@@ -288,102 +289,70 @@ std::pair<double, double> convertLatLongToXY(double latitude, double longitude) 
     return {x, y};
 }
 
-// 输出配送结果
-void printDeliveryResults(const DeliveryProblem& problem, 
-                         const std::vector<std::pair<std::vector<int>, std::vector<double>>>& allPaths) {
-    cout << "\n==================== 配送结果详情 ====================" << endl;
+// 修改打印函数实现以处理unordered_map结构
+void printDeliveryResults(
+    const DeliveryProblem& problem,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& allPaths)
+{
+    cout << "\n=== 配送路径与时间 ===" << endl;
+    double totalTaskCount = 0;
     
-    double maxCompletionTime = 0.0;
-    double totalCost = 0.0;
-    int totalTasksDelivered = 0;
-    
-    // 收集所有中心ID并排序（不需要额外建映射）
-    std::vector<int> sortedCenterIds;
-    for (const auto& center : problem.centers) {
-        sortedCenterIds.push_back(center.id);
-    }
-    std::sort(sortedCenterIds.begin(), sortedCenterIds.end());
-
-    // 遍历每个配送中心
-    for (int centerId : sortedCenterIds) {
-        // 查找配送中心信息
-        const DistributionCenter* center = nullptr;
-        for (const auto& c : problem.centers) {
-            if (c.id == centerId) {
-                center = &c;
-                break;
+    for (const auto& [vehicleId, pathData] : allPaths) {
+        const auto& [path, completionTimes] = pathData;
+        if (path.size() <= 2) continue;  // 跳过无任务的路径
+        
+        // 查找车辆索引
+        int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
+        const auto& vehicle = problem.vehicles[vehicleIndex];
+        
+        cout << "车辆 #" << vehicleId << " (";
+        cout << (vehicle.maxLoad > 0 ? "卡车" : "无人机");
+        cout << ") 的路径: ";
+        
+        // 输出路径上的每个点
+        for (size_t i = 0; i < path.size(); ++i) {
+            int pointId = path[i];
+            
+            // 区分配送中心和任务点
+            if (i == 0 || i == path.size() - 1) {
+                cout << "中心#" << pointId;
+            } else {
+                cout << "任务#" << pointId;
+                totalTaskCount++;
+            }
+            
+            if (i < path.size() - 1) {
+                cout << " -> ";
             }
         }
+        cout << endl;
         
-        if (!center) continue;
-        
-        cout << "\n▶ 配送中心 " << centerId << " (";
-        cout << (isDroneCenter(*center) ? "无人机中心" : "车辆中心") << "):" << endl;
-        
-        // 遍历该中心的所有车辆
-        for (int vehicleId : center->vehicles) {
-            // 将车辆ID转换为索引
-            int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
-            const auto& [path, completionTimes] = allPaths[vehicleIndex];
-            const Vehicle& vehicle = problem.vehicles[vehicleIndex];
-            
-            if (vehicle.id <= 0 || vehicle.id > 10000) {  // 添加合理的范围检查
-                std::cerr << "警告: 发现无效的车辆ID: " << vehicle.id << std::endl;
-                continue;
-            }
-            
-            if (path.empty() || path.size() <= 2) continue;
-            
-            cout << "  车辆 " << std::setw(3) << vehicle.id << " (";
-            if (vehicle.maxLoad > 0) {
-                cout << "无人机, 载重: " << vehicle.maxLoad << "kg, 电池: " << vehicle.fuel << "h";
-            } else {
-                cout << "普通车辆";
-            }
-            cout << "):" << endl;
-            
-            // 输出配送路径序列
-            cout << "    任务序列: ";
-            for (size_t j = 0; j < path.size(); ++j) {
-                if (j > 0 && j < path.size() - 1) { // 跳过起点和终点的配送中心
-                    totalTasksDelivered++;
+        // 打印完成时间
+        if (!completionTimes.empty()) {
+            cout << "  完成时间: ";
+            for (size_t i = 0; i < completionTimes.size(); ++i) {
+                cout << completionTimes[i] << "h";
+                if (i < completionTimes.size() - 1) {
+                    cout << ", ";
                 }
-                cout << path[j];
-                if (j < path.size() - 1) cout << " → ";
             }
             cout << endl;
-            
-            // 输出每个任务的完成时间
-            if (!completionTimes.empty()) {
-                cout << "    完成时间: ";
-                for (double time : completionTimes) {
-                    cout << std::fixed << std::setprecision(3) << std::setw(7) << time << " ";
-                    maxCompletionTime = std::max(maxCompletionTime, time);
-                }
-                cout << endl;
-            }
-            
-            // 计算成本
-            int tasksDelivered = path.size() - 2; // 减去起点和终点的配送中心
-            double vehicleCost = tasksDelivered * vehicle.cost;
-            totalCost += vehicleCost;
-            
-            cout << "    配送任务数: " << tasksDelivered << ", 成本: " << vehicleCost << endl;
         }
     }
     
-    cout << "\n▶ 总结统计:" << endl;
-    cout << "  总任务数: " << totalTasksDelivered << endl;
-    cout << "  最大完成时间: " << std::fixed << std::setprecision(3) << maxCompletionTime << " 小时" << endl;
-    cout << "  总配送成本: " << totalCost << endl;
-    cout << "\n=============================================================" << endl;
+    cout << "总共配送任务数: " << totalTaskCount << endl;
+    
+    // 计算总时间和成本
+    auto [totalTime, totalCost] = calculateTotalTimeAndCost(problem, allPaths);
+    cout << "总完成时间: " << totalTime << "h" << endl;
+    cout << "总成本: " << totalCost << " 元" << endl;
 }
 
-// 输出动态阶段配送结果
+// 修改函数声明以接受unordered_map结构
 void printDynamicResults(
     const DeliveryProblem& problem, 
-    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
-    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths)
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths)
 {
     cout << "\n=============================================================" << endl;
     cout << "▶ 动态阶段配送结果" << endl;
@@ -412,14 +381,17 @@ void printDynamicResults(
             cout << (isDroneCenter(center) ? "无人机中心" : "车辆中心") << "):" << endl;
             
             // 直接遍历该中心的所有车辆
-            for (int vehicleIndex : center.vehicles) {
-                const auto& [path, completionTimes] = dynamicPaths[vehicleIndex];
-                const Vehicle& vehicle = problem.vehicles[vehicleIndex];
-                
-                if (vehicle.id <= 0 || vehicle.id > 10000) {  // 添加合理的范围检查
-                    std::cerr << "警告: 发现无效的车辆ID: " << vehicle.id << std::endl;
+            for (int vehicleId : center.vehicles) {
+                // 检查该车辆是否在动态路径中
+                if (dynamicPaths.find(vehicleId) == dynamicPaths.end()) {
                     continue;
                 }
+                
+                const auto& [path, completionTimes] = dynamicPaths.at(vehicleId);
+                
+                // 获取车辆索引
+                int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
+                const Vehicle& vehicle = problem.vehicles[vehicleIndex];
                 
                 if (path.empty() || path.size() <= 2) continue;
                 
@@ -460,7 +432,7 @@ void printDynamicResults(
                 cout << "    配送任务数: " << tasksDelivered << ", 成本: " << vehicleCost << endl;
                 
                 // 计算与静态阶段的对比
-                const auto& [staticPath, staticTimes] = staticPaths[vehicleIndex];
+                const auto& [staticPath, staticTimes] = staticPaths.at(vehicleId);
                 if (!staticPath.empty() && staticPath.size() > 2) {
                     double staticMaxTime = 0.0;
                     if (!staticTimes.empty()) {

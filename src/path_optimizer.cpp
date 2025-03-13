@@ -165,33 +165,35 @@ vector<double> calculateCompletionTimes(
     return completionTimes;
 }
 
-// 优化动态阶段的所有路径
-vector<std::pair<vector<int>, vector<double>>> optimizeDynamicPaths(
+// 优化动态阶段的所有路径 - 修改为返回<车辆ID, <路径, 时间>>的形式
+std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimizeDynamicPaths(
     const DeliveryProblem& problem,
-    const vector<pair<int, int>>& dynamicAssignments, // (车辆索引, 任务ID)对
-    const vector<pair<vector<int>, vector<double>>>& staticPaths)
+    const std::vector<std::pair<int, int>>& dynamicAssignments, // (车辆ID, 任务ID)对
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths)
 {
-    // 按车辆收集所有分配的任务ID
-    unordered_map<int, vector<int>> vehicleTaskIds; // 车辆索引 -> 任务ID列表
-    for (const auto& [vehicleIndex, taskId] : dynamicAssignments) {
-        // 直接使用任务ID
-        vehicleTaskIds[vehicleIndex].push_back(taskId);
+    // 按车辆ID收集所有分配的任务ID
+    std::unordered_map<int, std::vector<int>> vehicleIdToTaskIds; // 车辆ID -> 任务ID列表
+    for (const auto& assignment : dynamicAssignments) {
+        int vehicleId = assignment.first;
+        int taskId = assignment.second;
+        vehicleIdToTaskIds[vehicleId].push_back(taskId);
     }
     
     // 为每个车辆创建优化路径
-    vector<std::pair<vector<int>, vector<double>>> dynamicPaths(problem.vehicles.size());
+    std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> dynamicPaths;
     
     // 为每个车辆优化路径
     for (size_t vehicleIndex = 0; vehicleIndex < problem.vehicles.size(); ++vehicleIndex) {
+        int vehicleId = problem.vehicles[vehicleIndex].id;
         int centerId = problem.vehicles[vehicleIndex].centerId;
         
         // 检查该车辆是否有分配的任务
-        if (vehicleTaskIds.count(vehicleIndex) && !vehicleTaskIds[vehicleIndex].empty()) {
+        if (vehicleIdToTaskIds.count(vehicleId) && !vehicleIdToTaskIds[vehicleId].empty()) {
             // 提取分配给该车辆的所有任务ID
-            const auto& assignedTaskIds = vehicleTaskIds[vehicleIndex];
+            const auto& assignedTaskIds = vehicleIdToTaskIds[vehicleId];
             
             // 使用最近邻算法优化路径
-            vector<int> path = optimizePathForVehicle(
+            std::vector<int> path = optimizePathForVehicle(
                 assignedTaskIds,  // 传递任务ID
                 problem.tasks,
                 problem.vehicles[vehicleIndex],
@@ -199,7 +201,7 @@ vector<std::pair<vector<int>, vector<double>>> optimizeDynamicPaths(
             );
             
             // 计算完成时间（考虑交通）
-            vector<double> completionTimes = calculateCompletionTimes(
+            std::vector<double> completionTimes = calculateCompletionTimes(
                 path,  // path中存储的是任务点的ID
                 problem.tasks,
                 problem.vehicles[vehicleIndex], 
@@ -207,19 +209,19 @@ vector<std::pair<vector<int>, vector<double>>> optimizeDynamicPaths(
                 true  // 考虑交通影响
             );
             
-            dynamicPaths[vehicleIndex] = {path, completionTimes};
+            dynamicPaths[vehicleId] = {path, completionTimes};
         } else {
             // 该车辆没有任务，使用静态路径（如果有）
-            if (vehicleIndex < staticPaths.size()) {
-                dynamicPaths[vehicleIndex] = staticPaths[vehicleIndex];
+            if (staticPaths.count(vehicleId)) {
+                dynamicPaths[vehicleId] = staticPaths.at(vehicleId);
             } else {
                 // 创建只包含起点和终点的路径
-                vector<int> path = {centerId, centerId};
-                vector<double> times = {0.0, 0.0};
-                dynamicPaths[vehicleIndex] = {path, times};
+                std::vector<int> path = {centerId, centerId};
+                std::vector<double> times = {0.0, 0.0};
+                dynamicPaths[vehicleId] = {path, times};
             }
         }
     }
     
-    return dynamicPaths;
+    return dynamicPaths;  // 返回<车辆ID, <路径(任务ID序列), 时间>>的形式
 }

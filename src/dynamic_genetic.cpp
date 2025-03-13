@@ -15,7 +15,7 @@ using std::unordered_set;
 using std::cout;
 using std::endl;
 
-// 动态阶段适应度计算 - 确保使用任务ID
+// 动态阶段适应度计算 - 更新以使用新的数据结构
 double calculateDynamicFitness(
     const vector<int>& solution,        // 存储车辆ID
     const vector<int>& allTaskIds,      // 存储任务ID
@@ -39,22 +39,20 @@ double calculateDynamicFitness(
         int vehicleId = solution[i];
         int taskId = allTaskIds[i];
         
-        // 使用映射直接获取车辆索引
-        int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
-        assignments.push_back({vehicleIndex, taskId});  // (车辆索引, 任务ID)
+        // 直接使用车辆ID
+        assignments.push_back({vehicleId, taskId});  // (车辆ID, 任务ID)
     }
     
-    // 使用optimizeDynamicPaths优化路径
-    vector<pair<vector<int>, vector<double>>> optimizedPaths = 
-        optimizeDynamicPaths(problem, assignments, {});
+    // 使用optimizeDynamicPaths优化路径 - 现在返回map而不是vector
+    auto optimizedPaths = optimizeDynamicPaths(problem, assignments, {});
     
     // 计算优化路径的适应度值
     double maxCompletionTime = 0.0;
     double totalCost = 0.0;
     int tasksAssigned = 0;
     
-    for (size_t vehicleIndex = 0; vehicleIndex < optimizedPaths.size(); ++vehicleIndex) {
-        const auto& [path, completionTimes] = optimizedPaths[vehicleIndex];
+    for (const auto& [vehicleId, pathData] : optimizedPaths) {
+        const auto& [path, completionTimes] = pathData;
         if (path.size() <= 2) continue;  // 跳过没有任务的路径
         
         // 记录任务数量
@@ -63,6 +61,9 @@ double calculateDynamicFitness(
         // 计算完成时间和成本
         if (!completionTimes.empty()) {
             maxCompletionTime = std::max(maxCompletionTime, completionTimes.back());
+            
+            // 查找车辆索引以获取成本
+            int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
             totalCost += problem.vehicles[vehicleIndex].cost * (path.size() - 2);
         }
     }
@@ -81,10 +82,10 @@ double calculateDynamicFitness(
            (1.0 - timeWeight) * totalCost;
 }
 
-// 改进的动态遗传算法，所有任务参与遗传
+// 改进的动态遗传算法，所有任务参与遗传 - 更新静态路径参数类型
 vector<pair<int, int>> dynamicGeneticAlgorithm(
     const DeliveryProblem& problem,
-    const vector<pair<vector<int>, vector<double>>>& staticPaths,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
     const vector<int>& delayedTasks,
     const vector<int>& newTasks,
     int populationSize,
@@ -135,11 +136,12 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
     vector<int> allTaskIds;
     
     // 从静态路径中提取任务和分配信息
-    for (size_t vehicleIndex = 0; vehicleIndex < staticPaths.size(); ++vehicleIndex) {
-        const auto& path = staticPaths[vehicleIndex].first;
+    for (const auto& [vehicleId, pathPair] : staticPaths) {
+        const auto& path = pathPair.first;
         if (path.size() <= 2) continue;
         
-        int vehicleId = problem.vehicles[vehicleIndex].id;  // 获取车辆ID
+        // 查找车辆索引
+        int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
         
         for (size_t i = 1; i < path.size() - 1; ++i) {
             int taskId = path[i];
@@ -155,7 +157,7 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
             if (!flexibleTasks.count(taskId)) {
                 staticTaskInfo[taskId] = {
                     problem.vehicles[vehicleIndex].centerId,
-                    vehicleId  // 使用车辆ID而不是索引
+                    vehicleId  // 使用车辆ID
                 };
             }
         }
@@ -331,20 +333,17 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
     sort(finalPopulation.begin(), finalPopulation.end());
     
     // 构建最终分配结果
-    vector<pair<int, int>> assignments;  // (车辆索引, 任务ID)对
+    vector<pair<int, int>> assignments;  // (车辆ID, 任务ID)对
     if (!finalPopulation.empty()) {
         const auto& bestSolution = finalPopulation[0].second;
         for (size_t i = 0; i < allTaskIds.size(); ++i) {
             int vehicleId = bestSolution[i];
             int taskId = allTaskIds[i];
             
-            // 使用映射直接获取车辆索引
-            if (problem.vehicleIdToIndex.count(vehicleId) > 0) {
-                int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
-                assignments.push_back({vehicleIndex, taskId});
-            }
+            // 直接使用车辆ID
+            assignments.push_back({vehicleId, taskId});
         }
     }
     
-    return assignments;  // 返回(车辆索引, 任务ID)对
+    return assignments;  // 返回(车辆ID, 任务ID)对
 } 

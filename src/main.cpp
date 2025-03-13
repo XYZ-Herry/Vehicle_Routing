@@ -40,7 +40,8 @@ int main(int argc, char* argv[])
     
     // 计算静态阶段的最大完成时间
     double staticMaxTime = 0.0;
-    for (const auto& [path, times] : staticPaths) {
+    for (const auto& [vehicleId, pathData] : staticPaths) {
+        const auto& [path, times] = pathData;
         if (!times.empty()) {
             staticMaxTime = std::max(staticMaxTime, times.back());
         }

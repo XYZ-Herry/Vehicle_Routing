@@ -127,13 +127,14 @@ inline bool isVehicleCenter(const DistributionCenter& center) {
 }
 
 // 输出配送结果
-void printDeliveryResults(const DeliveryProblem& problem, 
-                          const std::vector<std::pair<std::vector<int>, std::vector<double>>>& allPaths);
+void printDeliveryResults(
+    const DeliveryProblem& problem,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& allPaths);
 
-// 输出动态阶段配送结果
+// 输出动态阶段配送结果 - 更新参数类型
 void printDynamicResults(
     const DeliveryProblem& problem, 
-    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
-    const std::vector<std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths);
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths);
 
 #endif

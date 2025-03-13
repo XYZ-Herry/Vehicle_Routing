@@ -214,13 +214,12 @@ vector<pair<int, int>> geneticAlgorithm(
                     int vehicleId = bestSolution[i];
                     int taskId = centerTaskIds[i];
                     
-                    // 将车辆ID转换为索引
-                    int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
-                    finalAssignments.push_back({vehicleIndex, taskId});
+                    // 直接使用车辆ID
+                    finalAssignments.push_back({vehicleId, taskId});
                 }
             }
         }
     }
     
-    return finalAssignments;  // 返回(车辆索引, 任务ID)对
+    return finalAssignments;  // 返回(车辆ID, 任务ID)对
 }
