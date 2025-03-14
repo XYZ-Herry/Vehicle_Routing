@@ -55,8 +55,19 @@ double calculateDynamicFitness(
         const auto& [path, completionTimes] = pathData;
         if (path.size() <= 2) continue;  // 跳过没有任务的路径
         
+        // 计算真实任务数量
+        int realTaskCount = 0;
+        for (size_t i = 0; i < path.size(); i++) {
+            int pointId = path[i];
+            // 直接使用problem.centerIds
+            if (problem.centerIds.count(pointId) == 0) {
+                // 如果不是配送中心ID，则是任务点
+                realTaskCount++;
+            }
+        }
+        
         // 记录任务数量
-        tasksAssigned += path.size() - 2;  // 减去起点和终点的配送中心
+        tasksAssigned += realTaskCount;
         
         // 计算完成时间和成本
         if (!completionTimes.empty()) {
@@ -64,7 +75,7 @@ double calculateDynamicFitness(
             
             // 查找车辆索引以获取成本
             int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
-            totalCost += problem.vehicles[vehicleIndex].cost * (path.size() - 2);
+            totalCost += problem.vehicles[vehicleIndex].cost * realTaskCount;
         }
     }
     
@@ -112,29 +123,12 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
     };
     unordered_map<int, TaskInfo> staticTaskInfo;
     
-    if (1)  // 添加新任务和延迟任务前验证它们在任务数组中存在
-    {
-        vector<int> allTasksToVerify;
-
-        // 收集所有可能的任务ID（包括延迟任务和新任务）
-        for (int taskId : delayedTasks) allTasksToVerify.push_back(taskId);
-        for (int taskId : newTasks) allTasksToVerify.push_back(taskId);
-
-        // 验证这些任务ID是否存在
-        for (auto it = flexibleTasks.begin(); it != flexibleTasks.end();) {
-            int taskId = *it;
-            if (problem.taskIdToIndex.count(taskId) == 0) {
-                std::cout << "警告: ID为 " << taskId << " 的任务未在问题定义中找到，将被忽略" << std::endl;
-                it = flexibleTasks.erase(it);  // 从flexibleTasks中移除
-            } else {
-                ++it;
-            }
-        }
-    }
-    
     // 收集所有任务
     vector<int> allTaskIds;
-    
+    for (const auto& task : problem.tasks) {
+        allTaskIds.push_back(task.id);
+    }
+
     // 从静态路径中提取任务和分配信息
     for (const auto& [vehicleId, pathPair] : staticPaths) {
         const auto& path = pathPair.first;
@@ -146,13 +140,6 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
         for (size_t i = 1; i < path.size() - 1; ++i) {
             int taskId = path[i];
             
-            // 确保不添加配送中心ID作为任务
-            if (centerIds.count(taskId)) {
-                continue;
-            }
-            
-            allTaskIds.push_back(taskId);
-            
             // 如果不是延迟任务，记录其原始分配信息
             if (!flexibleTasks.count(taskId)) {
                 staticTaskInfo[taskId] = {
@@ -163,17 +150,9 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
         }
     }
     
-    // 添加新任务，确保不包含配送中心ID
-    for (int taskId : newTasks) {
-        if (!centerIds.count(taskId)) {
-            allTaskIds.push_back(taskId);
-        }
-    }
-    
     // 打印任务数量信息，方便调试
     cout << "动态优化任务数: " << allTaskIds.size() 
-         << " (原始非延迟: " << (allTaskIds.size() - flexibleTasks.size()) 
-         << ", 延迟或新增: " << flexibleTasks.size() << ")" << endl;
+         << ", 延迟或新增: " << flexibleTasks.size() << endl;
     
     // 初始化种群
     vector<vector<int>> population;

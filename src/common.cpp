@@ -163,13 +163,17 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             double latitude, longitude, time;
             file >> id >> longitude >> latitude >> time;
             auto [x, y] = convertLatLongToXY(latitude, longitude);
+            
+            // 给额外需求点添加偏移量确保ID唯一
+            int uniqueId = id + 10000;  // 假设原始ID不会超过10000
+            
             problem.tasks[initialDemandCount + i] = {
-                id, x, y, time,
+                uniqueId, x, y, time,
                 DeliveryProblem::DEFAULT_CENTER_ID,
                 1.0  // 默认重量1kg
             };
-            problem.coordinates[id] = {x, y};  // 存储坐标映射
-            cout << "任务点 " << id << ": (" << x << " km, " << y << " km)" << endl;
+            problem.coordinates[uniqueId] = {x, y};  // 存储坐标映射
+            cout << "任务点 " << uniqueId << " (原ID:" << id << "): (" << x << " km, " << y << " km)" << endl;
         }
 
         cout << "\n=====================================" << endl;
@@ -186,17 +190,15 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         // 在读取中心数据后添加
         for (size_t i = 0; i < problem.centers.size(); ++i) {
             problem.centerIdToIndex[problem.centers[i].id] = i;
-            problem.indexToCenterId[i] = problem.centers[i].id;
+            problem.centerIds.insert(problem.centers[i].id); // 添加到集合中
         }
         
         for (size_t i = 0; i < problem.tasks.size(); i++) {
             problem.taskIdToIndex[problem.tasks[i].id] = i;
-            problem.indexToTaskId[i] = problem.tasks[i].id;
         }
         
         for (size_t i = 0; i < problem.vehicles.size(); i++) {
             problem.vehicleIdToIndex[problem.vehicles[i].id] = i;
-            problem.indexToVehicleId[i] = problem.vehicles[i].id;
         }
         
         return true;
@@ -306,7 +308,7 @@ void printDeliveryResults(
         const auto& vehicle = problem.vehicles[vehicleIndex];
         
         cout << "车辆 #" << vehicleId << " (";
-        cout << (vehicle.maxLoad > 0 ? "卡车" : "无人机");
+        cout << (vehicle.maxLoad > 0 ? "无人机" : "卡车");
         cout << ") 的路径: ";
         
         // 输出路径上的每个点
@@ -314,7 +316,7 @@ void printDeliveryResults(
             int pointId = path[i];
             
             // 区分配送中心和任务点
-            if (i == 0 || i == path.size() - 1) {
+            if (problem.centerIds.count(pointId) > 0) {
                 cout << "中心#" << pointId;
             } else {
                 cout << "任务#" << pointId;
@@ -357,6 +359,12 @@ void printDynamicResults(
     cout << "\n=============================================================" << endl;
     cout << "▶ 动态阶段配送结果" << endl;
     cout << "=============================================================" << endl;
+    
+    // 收集所有配送中心ID
+    std::unordered_set<int> centerIds;
+    for (const auto& center : problem.centers) {
+        centerIds.insert(center.id);
+    }
     
     // 统计不同指标
     int totalTasksDelivered = 0;
@@ -405,11 +413,20 @@ void printDynamicResults(
                 
                 // 输出配送路径序列
                 cout << "    任务序列: ";
+                int vehicleTaskCount = 0;
                 for (size_t j = 0; j < path.size(); ++j) {
-                    if (j > 0 && j < path.size() - 1) { // 跳过起点和终点的配送中心
+                    int pointId = path[j];
+                    
+                    // 输出点ID
+                    cout << pointId;
+                    
+                    // 计算任务数
+                    if (problem.centerIds.count(pointId) == 0) {
+                        // 不是配送中心，是任务点
+                        vehicleTaskCount++;
                         totalTasksDelivered++;
                     }
-                    cout << path[j];
+                    
                     if (j < path.size() - 1) cout << " → ";
                 }
                 cout << endl;
@@ -425,40 +442,48 @@ void printDynamicResults(
                 }
                 
                 // 计算成本
-                int tasksDelivered = path.size() - 2; // 减去起点和终点的配送中心
-                double vehicleCost = tasksDelivered * vehicle.cost;
+                double vehicleCost = vehicleTaskCount * vehicle.cost;
                 totalCost += vehicleCost;
                 
-                cout << "    配送任务数: " << tasksDelivered << ", 成本: " << vehicleCost << endl;
+                cout << "    配送任务数: " << vehicleTaskCount << ", 成本: " << vehicleCost << endl;
                 
                 // 计算与静态阶段的对比
-                const auto& [staticPath, staticTimes] = staticPaths.at(vehicleId);
-                if (!staticPath.empty() && staticPath.size() > 2) {
-                    double staticMaxTime = 0.0;
-                    if (!staticTimes.empty()) {
-                        staticMaxTime = staticTimes.back();
+                if (staticPaths.count(vehicleId)) {
+                    const auto& [staticPath, staticTimes] = staticPaths.at(vehicleId);
+                    if (!staticPath.empty()) {
+                        // 计算静态任务数
+                        int staticTaskCount = 0;
+                        for (int pointId : staticPath) {
+                            if (problem.centerIds.count(pointId) == 0) {
+                                staticTaskCount++;
+                            }
+                        }
+                    
+                        double staticMaxTime = 0.0;
+                        if (!staticTimes.empty()) {
+                            staticMaxTime = staticTimes.back();
+                        }
+                        
+                        double timeChange = completionTimes.empty() ? 0 : (completionTimes.back() - staticMaxTime);
+                        int taskChange = vehicleTaskCount - staticTaskCount;
+                        
+                        cout << "    与静态阶段相比: 时间";
+                        if (timeChange > 0) cout << "增加 " << timeChange << "h";
+                        else cout << "减少 " << -timeChange << "h";
+                        
+                        cout << ", 任务";
+                        if (taskChange > 0) cout << "增加 " << taskChange << "个";
+                        else if (taskChange < 0) cout << "减少 " << -taskChange << "个";
+                        else cout << "无变化";
+                        cout << endl;
                     }
-                    
-                    double timeChange = completionTimes.empty() ? 0 : (completionTimes.back() - staticMaxTime);
-                    int taskChange = (path.size() - 2) - (staticPath.size() - 2);
-                    
-                    cout << "    与静态阶段相比: 时间";
-                    if (timeChange > 0) cout << "增加 " << std::fixed << std::setprecision(3) << timeChange;
-                    else cout << "减少 " << std::fixed << std::setprecision(3) << -timeChange;
-                    
-                    cout << "小时, 任务";
-                    if (taskChange > 0) cout << "增加 " << taskChange;
-                    else if (taskChange < 0) cout << "减少 " << -taskChange;
-                    else cout << "无变化";
-                    cout << endl;
                 }
             }
         }
     }
     
-    cout << "\n▶ 总结统计:" << endl;
-    cout << "  总任务数: " << totalTasksDelivered << endl;
-    cout << "  最大完成时间: " << std::fixed << std::setprecision(3) << maxCompletionTime << " 小时" << endl;
-    cout << "  总配送成本: " << totalCost << endl;
     cout << "\n=============================================================" << endl;
+    cout << "总计配送任务: " << totalTasksDelivered << " 个" << endl;
+    cout << "最大完成时间: " << maxCompletionTime << " h" << endl;
+    cout << "总成本: " << totalCost << " 元" << endl;
 }

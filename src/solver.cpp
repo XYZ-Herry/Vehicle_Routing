@@ -12,6 +12,7 @@ using std::vector;
 using std::pair;
 using std::make_pair;
 using std::unordered_map;
+using std::unordered_set;
 using std::cout;
 using std::endl;
 using std::max;
@@ -71,6 +72,7 @@ pair<double, double> calculateTotalTimeAndCost(
     double totalCost = 0.0;
     
     for (const auto &pair : allPaths) {
+        int vehicleId = pair.first;
         const auto &[path, completionTimes] = pair.second;
         if (!path.empty()) {
             // 更新最大完成时间
@@ -78,9 +80,18 @@ pair<double, double> calculateTotalTimeAndCost(
                 totalTime = std::max(totalTime, completionTimes.back());
             }
             
-            // 计算运送成本（减去起点和终点的配送中心）
-            int actualTaskCount = path.size() - 2;
-            totalCost += actualTaskCount * problem.vehicles[pair.first].cost;
+            // 计算实际任务数量
+            int actualTaskCount = 0;
+            for (int pointId : path) {
+                if (problem.centerIds.count(pointId) == 0) {
+                    // 如果不是配送中心ID，则是任务点
+                    actualTaskCount++;
+                }
+            }
+            
+            // 计算运送成本
+            int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
+            totalCost += actualTaskCount * problem.vehicles[vehicleIndex].cost;
         }
     }
     

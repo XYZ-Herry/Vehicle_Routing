@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <ctime>  // 添加时间相关头文件
 #include <unistd.h>
+#include <unordered_set>
 
 // 前向声明
 struct TaskPoint;
@@ -110,6 +111,9 @@ struct DeliveryProblem
     std::unordered_map<int, int> indexToTaskId;      // 索引到任务ID的映射
     std::unordered_map<int, int> indexToVehicleId;   // 索引到车辆ID的映射
     std::unordered_map<int, int> indexToCenterId;    // 索引到中心ID的映射
+    
+    // 所有配送中心ID的集合
+    std::unordered_set<int> centerIds;
 };
 
 // 工具函数声明

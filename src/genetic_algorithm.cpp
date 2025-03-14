@@ -66,7 +66,19 @@ double calculateFitness(
         
         if (!completionTimes.empty()) {
             maxCompletionTime = std::max(maxCompletionTime, completionTimes.back());
-            totalCost += vehicle.cost * taskIds.size();
+            
+            // 计算真实的任务数量(不包括配送中心)
+            int taskCount = 0;
+            for (size_t i = 0; i < path.size(); i++) {
+                int pointId = path[i];
+                // 直接使用problem.centerIds
+                if (problem.centerIds.count(pointId) == 0) {
+                    // 如果不是配送中心ID，则是任务点
+                    taskCount++;
+                }
+            }
+            
+            totalCost += vehicle.cost * taskCount;
         }
     }
     
@@ -88,7 +100,7 @@ vector<pair<int, int>> geneticAlgorithm(
     for (const auto& center : problem.centers) {
         vector<int> centerTaskIds;      // 该中心负责的任务ID
         
-        // 收集该中心的任务ID（不是索引）
+        // 收集该中心的任务ID
         for (size_t i = 0; i < problem.tasks.size(); ++i) {
             if (problem.tasks[i].centerId == center.id) {
                 centerTaskIds.push_back(problem.tasks[i].id);  // 使用任务ID
