@@ -168,37 +168,77 @@ vector<double> calculateCompletionTimes(
 // 优化动态阶段的所有路径 - 修改为返回<车辆ID, <路径, 时间>>的形式
 std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimizeDynamicPaths(
     const DeliveryProblem& problem,
-    const std::vector<std::pair<int, int>>& dynamicAssignments, // (车辆ID, 任务ID)对
+    const std::vector<std::pair<int, int>>& dynamicAssignments, // (车辆ID, 任务索引)对
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths)
 {
-    // 按车辆ID收集所有分配的任务ID
-    std::unordered_map<int, std::vector<int>> vehicleIdToTaskIds; // 车辆ID -> 任务ID列表
+    // 按车辆ID收集所有分配的任务索引
+    std::unordered_map<int, std::vector<int>> vehicleIdToTaskIndices; // 车辆ID -> 任务索引列表
     for (const auto& assignment : dynamicAssignments) {
         int vehicleId = assignment.first;
-        int taskId = assignment.second;
-        vehicleIdToTaskIds[vehicleId].push_back(taskId);
+        int taskIndex = assignment.second;
+        vehicleIdToTaskIndices[vehicleId].push_back(taskIndex);
     }
     
     // 为每个车辆创建优化路径
     std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> dynamicPaths;
-    
+
     // 为每个车辆优化路径
     for (size_t vehicleIndex = 0; vehicleIndex < problem.vehicles.size(); ++vehicleIndex) {
         int vehicleId = problem.vehicles[vehicleIndex].id;
         int centerId = problem.vehicles[vehicleIndex].centerId;
         
         // 检查该车辆是否有分配的任务
-        if (vehicleIdToTaskIds.count(vehicleId) && !vehicleIdToTaskIds[vehicleId].empty()) {
-            // 提取分配给该车辆的所有任务ID
-            const auto& assignedTaskIds = vehicleIdToTaskIds[vehicleId];
+        if (vehicleIdToTaskIndices.count(vehicleId) && !vehicleIdToTaskIndices[vehicleId].empty()) {
+            // 提取分配给该车辆的所有任务索引
+            const auto& assignedTaskIndices = vehicleIdToTaskIndices[vehicleId];
             
-            // 使用最近邻算法优化路径
-            std::vector<int> path = optimizePathForVehicle(
-                assignedTaskIds,  // 传递任务ID
-                problem.tasks,
-                problem.vehicles[vehicleIndex],
-                problem
-            );
+            // 直接在这里实现基于索引的路径优化（类似optimizePathForVehicle）
+            std::vector<int> path;
+            path.push_back(centerId); // 从配送中心开始
+            
+            vector<bool> visited(assignedTaskIndices.size(), false);
+            int currentPos = centerId;
+            
+            // 使用最近邻法构建路径
+            while (true) {
+                double minDistance = std::numeric_limits<double>::max();
+                int nextIndex = -1;
+                int nextTaskId = -1;
+                
+                // 查找距离当前位置最近的未访问任务
+                for (size_t i = 0; i < assignedTaskIndices.size(); i++) {
+                    if (!visited[i]) {
+                        int taskIndex = assignedTaskIndices[i];
+                        int taskId = problem.tasks[taskIndex].id;
+                        
+                        double distance = getDistance(
+                            currentPos, 
+                            taskId, 
+                            problem,
+                            problem.vehicles[vehicleIndex].maxLoad > 0);
+                        
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            nextIndex = i;
+                            nextTaskId = taskId;
+                        }
+                    }
+                }
+                
+                // 如果找到了下一个任务，添加到路径中
+                if (nextIndex != -1) {
+                    visited[nextIndex] = true;
+                    path.push_back(nextTaskId);
+                    currentPos = nextTaskId;
+                } else {
+                    break; // 所有任务都已访问，结束
+                }
+            }
+            
+            // 最后返回配送中心
+            if (currentPos != centerId) {
+                path.push_back(centerId);
+            }
             
             // 计算完成时间（考虑交通）
             std::vector<double> completionTimes = calculateCompletionTimes(

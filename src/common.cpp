@@ -170,7 +170,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             };
             problem.coordinates[id] = {x, y};  // 存储坐标映射
             cout << "任务点 " << id << ": (" << x << " km, " << y << " km)" << endl;
-        }
+        } 
 
         cout << "\n=====================================" << endl;
         cout << "数据加载成功！" << endl;
@@ -183,20 +183,22 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         }
         cout << "其中无人机数量: " << droneCount << endl;
         
-        // 在读取中心数据后添加
+        // id->index
         for (size_t i = 0; i < problem.centers.size(); ++i) {
             problem.centerIdToIndex[problem.centers[i].id] = i;
-            problem.indexToCenterId[i] = problem.centers[i].id;
         }
         
-        for (size_t i = 0; i < problem.tasks.size(); i++) {
+        for (size_t i = 0; i < problem.initialDemandCount; i++) {
             problem.taskIdToIndex[problem.tasks[i].id] = i;
-            problem.indexToTaskId[i] = problem.tasks[i].id;
         }
         
         for (size_t i = 0; i < problem.vehicles.size(); i++) {
             problem.vehicleIdToIndex[problem.vehicles[i].id] = i;
-            problem.indexToVehicleId[i] = problem.vehicles[i].id;
+        }
+        
+        // 初始化配送中心ID集合
+        for (const auto& center : problem.centers) {
+            problem.centerIds.insert(center.id);
         }
         
         return true;

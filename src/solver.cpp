@@ -123,21 +123,21 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> solveD
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
     double staticMaxTime)
 {
-    // 识别需要重新调度的任务
-    vector<int> delayedTasks, newTasks;
-    identifyTasksForRescheduling(problem, staticPaths, staticMaxTime, delayedTasks, newTasks);
+    // 识别需要重新调度的任务的索引
+    vector<int> delayedTaskIndices, newTaskIndices;
+    identifyTasksForRescheduling(problem, staticPaths, staticMaxTime, delayedTaskIndices, newTaskIndices);
     
-    cout << "延迟任务数量: " << delayedTasks.size() << endl;
-    cout << "新增任务数量: " << newTasks.size() << endl;
+    cout << "延迟任务数量: " << delayedTaskIndices.size() << endl;
+    cout << "新增任务数量: " << newTaskIndices.size() << endl;
     
-    if (delayedTasks.empty() && newTasks.empty()) {
+    if (delayedTaskIndices.empty() && newTaskIndices.empty()) {
         cout << "没有需要重新调度的任务，直接使用静态解决方案" << endl;
         return staticPaths;
     }
     
     // 使用改进的动态遗传算法分配任务
     vector<pair<int, int>> assignments = dynamicGeneticAlgorithm(
-        problem, staticPaths, delayedTasks, newTasks,
+        problem, staticPaths, delayedTaskIndices, newTaskIndices,
         100,  // 种群大小
         50,   // 迭代次数
         0.1,  // 变异率
@@ -158,12 +158,12 @@ void identifyTasksForRescheduling(
     const DeliveryProblem& problem,
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
     double staticMaxTime,
-    vector<int>& delayedTasks,
-    vector<int>& newTasks)
+    vector<int>& delayedTaskIndices,
+    vector<int>& newTaskIndices)
 {
     // 添加新增任务
     for (size_t i = problem.initialDemandCount; i < problem.tasks.size(); ++i) {
-        newTasks.push_back(problem.tasks[i].id);  // 添加任务ID而不是索引
+        newTaskIndices.push_back(i);  // 添加任务索引
     }
     
     // 检查每个车辆的路径，找出在高峰期会延迟的任务
@@ -181,7 +181,7 @@ void identifyTasksForRescheduling(
                 // 找到路径中对应的任务点ID (不是索引)
                 if (i + 1 < path.size()) {  // 确保索引在范围内
                     int taskId = path[i + 1]; // +1 因为第一个是配送中心
-                    delayedTasks.push_back(taskId); // 这里存的是任务ID
+                    delayedTaskIndices.push_back(problem.taskIdToIndex.at(taskId)); // 这里存的是静态阶段超时任务的索引
                 }
             }
         }
