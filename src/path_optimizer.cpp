@@ -142,19 +142,7 @@ vector<double> calculateCompletionTimes(
         
         double travelTime = dist / (vehicle.speed * speedFactor);
         currentTime += travelTime;
-        
-        if (nextPosId == vehicle.centerId) {
-            currentLoad = 0.0;
-        } else {
-            // 需要找到任务索引来访问任务属性
-            auto it = problem.taskIdToIndex.find(nextPosId);
-            if (it != problem.taskIdToIndex.end()) {
-                int taskIndex = it->second;
-                currentLoad += tasks[taskIndex].weight;
-                completionTimes.push_back(currentTime);
-            }
-        }
-        
+        completionTimes.push_back(currentTime);
         currentPosId = nextPosId;
     }
     
@@ -180,7 +168,7 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
     }
     
     /*
-        在这个函数里面实现车机协同的功能，目前只是各走各的
+        在这个函数里面实现车机协同的功能，目前只是各走各的，也没有考虑额外需求点时间的限制
     */
 
     

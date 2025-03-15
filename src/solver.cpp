@@ -76,8 +76,8 @@ pair<double, double> calculateTotalTimeAndCost(
         const auto &[path, completionTimes] = pair.second;
         if (!path.empty()) {
             // 更新最大完成时间
-            if (!completionTimes.empty()) {
-                totalTime = std::max(totalTime, completionTimes.back());
+            if (completionTimes.size() >= 2) {
+                totalTime = std::max(totalTime, completionTimes[completionTimes.size()-2]);
             }
             
             // 计算实际任务数量

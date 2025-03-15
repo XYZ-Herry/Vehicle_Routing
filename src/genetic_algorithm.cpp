@@ -64,8 +64,9 @@ double calculateFitness(
             vehicle, 
             problem);
         
-        if (!completionTimes.empty()) {
-            maxCompletionTime = std::max(maxCompletionTime, completionTimes.back());
+        if (completionTimes.size() >= 2) {
+            maxCompletionTime = std::max(maxCompletionTime, completionTimes[completionTimes.size()-2]);
+        
             
             // 计算真实的任务数量(不包括配送中心)
             int taskCount = 0;

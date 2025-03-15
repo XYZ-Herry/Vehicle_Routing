@@ -35,7 +35,8 @@ struct TaskPoint
     double x, y;                // 坐标（公里）
     double time;                // 出现时间（小时）
     int centerId;               // 所属配送中心ID
-    double weight;              // 包裹重量（千克）
+    double pickweight;              // 取货重量（千克）
+    double sendWeight;      // 送货重量（千克）
 };
 
 // 车辆/无人机结构体

@@ -71,8 +71,10 @@ double calculateDynamicFitness(
         tasksAssigned += realTaskCount;
         
         // 计算完成时间和成本
-        if (!completionTimes.empty()) {
-            maxCompletionTime = std::max(maxCompletionTime, completionTimes.back());
+        if (completionTimes.size() >= 2) {
+            maxCompletionTime = std::max(maxCompletionTime, completionTimes[completionTimes.size()-2]);
+        // if (!completionTimes.empty()) {
+        //     maxCompletionTime = std::max(maxCompletionTime, completionTimes.back());
             
             // 查找车辆索引以获取成本
             int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);

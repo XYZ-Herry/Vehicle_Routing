@@ -84,7 +84,8 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             problem.tasks[i] = {
                 id, x, y, 0.0,    
                 DeliveryProblem::DEFAULT_CENTER_ID,
-                1.0  // 默认重量1kg
+                1.0,  // 默认取货重量1kg
+                1.0   // 默认送货重量1kg
             };
             problem.coordinates[id] = {x, y};  // 存储坐标映射
             cout << "任务点 " << id << ": (" << x << " km, " << y << " km)" << endl;
@@ -174,7 +175,8 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             problem.tasks[initialDemandCount + i] = {
                 uniqueId, x, y, time,
                 DeliveryProblem::DEFAULT_CENTER_ID,
-                1.0  // 默认重量1kg
+                1.0,  // 默认重量1kg
+                1.0   // 默认重量1kg
             };
             problem.coordinates[uniqueId] = {x, y};  // 存储坐标映射
             cout << "任务点 " << uniqueId << " (原ID:" << id << "): (" << x << " km, " << y << " km)" << endl;
@@ -359,7 +361,7 @@ void printDeliveryResults(
         cout << endl;
         
         // 打印完成时间
-        if (!completionTimes.empty()) {
+        if (completionTimes.size() >= 2) {
             cout << "  完成时间: ";
             for (size_t i = 0; i < completionTimes.size(); ++i) {
                 cout << " " << completionTimes[i] << "h";
