@@ -127,7 +127,26 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> solveD
     identifyTasksForRescheduling(problem, staticPaths, staticMaxTime, delayedTasks, newTasks);
     
     cout << "延迟任务数量: " << delayedTasks.size() << endl;
+    // 输出延迟任务ID
+    if (!delayedTasks.empty()) {
+        cout << "延迟任务ID: ";
+        for (size_t i = 0; i < delayedTasks.size(); ++i) {
+            if (i > 0) cout << ", ";
+            cout << delayedTasks[i];
+        }
+        cout << endl;
+    }
+    
     cout << "新增任务数量: " << newTasks.size() << endl;
+    // 输出新增任务ID
+    if (!newTasks.empty()) {
+        cout << "新增任务ID: ";
+        for (size_t i = 0; i < newTasks.size(); ++i) {
+            if (i > 0) cout << ", ";
+            cout << newTasks[i];
+        }
+        cout << endl;
+    }
     
     if (delayedTasks.empty() && newTasks.empty()) {
         cout << "没有需要重新调度的任务，直接使用静态解决方案" << endl;

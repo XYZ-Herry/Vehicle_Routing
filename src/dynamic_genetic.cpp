@@ -15,7 +15,7 @@ using std::unordered_set;
 using std::cout;
 using std::endl;
 
-// 动态阶段适应度计算 - 更新以使用新的数据结构
+// 动态阶段适应度计算 
 double calculateDynamicFitness(
     const vector<int>& solution,        // 存储车辆ID
     const vector<int>& allTaskIds,      // 存储任务ID
@@ -35,6 +35,7 @@ double calculateDynamicFitness(
     
     // 转换为optimizeDynamicPaths所需的格式：vehicle-task对列表
     vector<pair<int, int>> assignments;
+    //cout << "1231231231231312222222222222222222 " << allTaskIds.size() << endl;
     for (size_t i = 0; i < allTaskIds.size(); ++i) {
         int vehicleId = solution[i];
         int taskId = allTaskIds[i];
@@ -43,7 +44,7 @@ double calculateDynamicFitness(
         assignments.push_back({vehicleId, taskId});  // (车辆ID, 任务ID)
     }
     
-    // 使用optimizeDynamicPaths优化路径 - 现在返回map而不是vector
+    // 使用optimizeDynamicPaths优化路径
     auto optimizedPaths = optimizeDynamicPaths(problem, assignments, {});
     
     // 计算优化路径的适应度值
@@ -111,10 +112,11 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
     for (int taskId : delayedTasks) flexibleTasks.insert(taskId);
     for (int taskId : newTasks) flexibleTasks.insert(taskId);
     
+    
     // 记录静态任务的原始分配信息
     struct TaskInfo {
-        int centerId;    // 所属中心
-        int vehicleId;   // 原始车辆ID（不是索引）
+        int centerId;    // 所属中心ID
+        int vehicleId;   // 原始车辆ID
     };
     unordered_map<int, TaskInfo> staticTaskInfo;
     
@@ -135,7 +137,7 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
         for (size_t i = 1; i < path.size() - 1; ++i) {
             int taskId = path[i];
             
-            // 如果不是延迟任务，记录其原始分配信息
+            // 记录其原始分配信息
             if (!flexibleTasks.count(taskId)) {
                 staticTaskInfo[taskId] = {
                     problem.vehicles[vehicleIndex].centerId,
@@ -144,7 +146,6 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
             }
         }
     }
-    
     // 初始化种群
     vector<vector<int>> population;
     int attempts = 0;

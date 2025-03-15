@@ -179,6 +179,11 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
         vehicleIdToTaskIds[vehicleId].push_back(taskId);
     }
     
+    /*
+        在这个函数里面实现车机协同的功能，目前只是各走各的
+    */
+
+    
     // 为每个车辆创建优化路径
     std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> dynamicPaths;
     
@@ -196,7 +201,7 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
             std::vector<int> path = optimizePathForVehicle(
                 assignedTaskIds,  // 传递任务ID
                 problem.tasks,
-                problem.vehicles[vehicleIndex],
+                problem.vehicles[vehicleIndex], //传递车辆
                 problem
             );
             
@@ -210,16 +215,12 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
             );
             
             dynamicPaths[vehicleId] = {path, completionTimes};
-        } else {
-            // 该车辆没有任务，使用静态路径（如果有）
-            if (staticPaths.count(vehicleId)) {
-                dynamicPaths[vehicleId] = staticPaths.at(vehicleId);
-            } else {
-                // 创建只包含起点和终点的路径
-                std::vector<int> path = {centerId, centerId};
-                std::vector<double> times = {0.0, 0.0};
-                dynamicPaths[vehicleId] = {path, times};
-            }
+        } 
+        else {
+            // 创建只包含起点和终点的路径
+            std::vector<int> path = {centerId, centerId};
+            std::vector<double> times = {0.0, 0.0};
+            dynamicPaths[vehicleId] = {path, times};
         }
     }
     
