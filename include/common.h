@@ -141,4 +141,10 @@ void printDynamicResults(
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths);
 
+// 打印初始信息
+void printInitialInfo(const DeliveryProblem& problem);
+
+// 打印配送中心的分配情况
+void printCenterAssignments(const DeliveryProblem& problem);
+
 #endif

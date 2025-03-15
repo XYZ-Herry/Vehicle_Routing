@@ -34,30 +34,36 @@ int main(int argc, char* argv[])
         return 1;
     }
     
+    // 打印初始信息
+    printInitialInfo(problem);
+    
     // 求解静态配送问题
     cout << "\n========== 静态阶段求解 ==========" << endl;
-    auto staticPaths = solveStaticProblem(problem);//staticPaths 是一个包含所有车辆路径的向量，每个路径是一个包含任务ID的向量，以及每个任务的完成时间。
+    printCenterAssignments(problem);
+    auto staticPaths = solveStaticProblem(problem);
     
     // 计算静态阶段的最大完成时间
     double staticMaxTime = 0.0;
-    for (const auto& [vehicleId, pathData] : staticPaths) {
-        const auto& [path, times] = pathData;
-        if (!times.empty()) {
-            staticMaxTime = std::max(staticMaxTime, times.back());
+    for (const auto& [vehicleId, pair] : staticPaths) {
+        const auto& [path, completionTimes] = pair;
+        if (!completionTimes.empty()) {
+            staticMaxTime = std::max(staticMaxTime, completionTimes.back());
         }
     }
     
-    // 输出静态阶段配送结果详情
+    // 输出静态阶段结果
     printDeliveryResults(problem, staticPaths);
     
     // 求解动态阶段问题
     cout << "\n========== 动态阶段求解 ==========" << endl;
-    cout << "静态阶段最大完成时间 T = " << staticMaxTime << " 小时" << endl;
+    
+    // 在输出动态阶段结果前添加任务数量统计
+    int totalDynamicTasks = problem.tasks.size();
+    cout << "动态优化任务数: " << totalDynamicTasks << endl;
     
     auto dynamicPaths = solveDynamicProblem(problem, staticPaths, staticMaxTime);
     
-    // 输出动态阶段配送结果详情
-    cout << "\n========== 动态阶段结果 ==========" << endl;
+    // 输出动态阶段配送结果详情 - 使用新的结构化输出
     printDeliveryResults(problem, dynamicPaths);
     
     return 0;

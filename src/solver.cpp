@@ -113,18 +113,6 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> solveS
     
     auto allPaths = optimizeAllPaths(problem, vehicleTaskAssignments);
     
-    // 计算最晚完成时间
-    double latestCompletionTime = 0.0;
-    for (const auto& [vehicleId, pair] : allPaths) {
-        const auto& [path, completionTimes] = pair;
-        if (!completionTimes.empty()) {
-            latestCompletionTime = std::max(latestCompletionTime, completionTimes.back());
-        }
-    }
-    
-    // 输出最晚完成时间
-    cout << "静态阶段所有任务的最晚完成时间: " << latestCompletionTime << " 小时" << endl;
-    
     return allPaths;
 }
 

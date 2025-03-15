@@ -35,15 +35,9 @@ void assignTasksToCenters(DeliveryProblem& problem) {
         }
     }
     
-    // 输出分配结果
+    // 这里可以保留，只计算数据但不输出
     unordered_map<int, int> centerTaskCount;  // 中心ID -> 任务数量
     for (size_t i = 0; i < problem.initialDemandCount; i++) {
         centerTaskCount[problem.tasks[i].centerId]++;
-    }
-    
-    cout << "配送中心任务分配结果：" << endl;
-    for (const auto& center : problem.centers) {
-        cout << "配送中心 #" << center.id << ": " 
-             << centerTaskCount[center.id] << " 个任务" << endl;
     }
 }

@@ -105,11 +105,6 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
     double timeWeight,
     double staticMaxTime)
 {
-    // 收集所有配送中心ID以便过滤
-    unordered_set<int> centerIds;
-    for (const auto& center : problem.centers) {
-        centerIds.insert(center.id);
-    }
     
     // 记录延迟和新增任务（可以自由分配）
     unordered_set<int> flexibleTasks;
@@ -149,10 +144,6 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
             }
         }
     }
-    
-    // 打印任务数量信息，方便调试
-    cout << "动态优化任务数: " << allTaskIds.size() 
-         << ", 延迟或新增: " << flexibleTasks.size() << endl;
     
     // 初始化种群
     vector<vector<int>> population;
