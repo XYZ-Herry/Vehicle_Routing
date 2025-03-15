@@ -15,20 +15,15 @@ using std::numeric_limits;
 // 将任务点分配给最近的配送中心
 void assignTasksToCenters(DeliveryProblem& problem) {
     // 遍历所有任务，为每个任务找到最近的配送中心
-    for (size_t i = 0; i < problem.tasks.size(); i++) {
-        // 在静态阶段跳过额外需求点
-        if (i >= problem.initialDemandCount) {
-            continue;
-        }
+    for (size_t i = 0; i < problem.initialDemandCount; i++) {
         
         auto& task = problem.tasks[i];
         double minDistance = std::numeric_limits<double>::max();
         int closestCenterId = -1;
         
         for (const auto& center : problem.centers) {
-            // 使用ID计算任务点到配送中心的距离
+            // 使用ID计算任务点到配送中心的实际距离
             double distance = getDistance(task.id, center.id, problem, false);
-            
             if (distance < minDistance) {
                 minDistance = distance;
                 closestCenterId = center.id;

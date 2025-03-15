@@ -100,7 +100,9 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             int id;
             double latitude, longitude;
             int vehicleCount;
+            
             file >> id >> longitude >> latitude >> vehicleCount;
+            id += 20000;
             auto [x, y] = convertLatLongToXY(latitude, longitude);
             
             problem.centers[i] = {id, x, y, vehicleCount, 0};
@@ -131,7 +133,9 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             int id;
             double latitude, longitude;
             int droneCount;
+            
             file >> id >> longitude >> latitude >> droneCount;
+            id += 20000;
             auto [x, y] = convertLatLongToXY(latitude, longitude);
 
             problem.centers[vehicleCenterCount + i] = {id, x, y, 0, droneCount};
@@ -270,6 +274,10 @@ double getDistance(int id1, int id2, const DeliveryProblem& problem, bool isDron
         return euclideanDist;
     } else {
         // 车辆优先使用路网最短距离
+        if (id1 > 20000) id1 -= 20000;
+        if (id2 > 20000) id2 -= 20000;
+        if (id1 > 10000) id1 -= 10000;
+        if (id2 > 10000) id2 -= 10000;
         if (problem.network.distances.count(id1) && problem.network.distances.at(id1).count(id2)) {
             return problem.network.distances.at(id1).at(id2);
         }
