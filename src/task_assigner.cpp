@@ -33,11 +33,8 @@ void assignTasksToCenters(DeliveryProblem& problem) {
         if (closestCenterId != -1) {
             task.centerId = closestCenterId;  // 使用中心ID而非索引
         }
+        problem.centerToTasks[closestCenterId].push_back(task.id);
     }
     
-    // 这里可以保留，只计算数据但不输出
-    unordered_map<int, int> centerTaskCount;  // 中心ID -> 任务数量
-    for (size_t i = 0; i < problem.initialDemandCount; i++) {
-        centerTaskCount[problem.tasks[i].centerId]++;
-    }
+
 }

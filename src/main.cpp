@@ -37,10 +37,13 @@ int main(int argc, char* argv[])
     // 打印初始信息
     printInitialInfo(problem);
     
+    
     // 求解静态配送问题
     cout << "\n========== 静态阶段求解 ==========" << endl;
-    printCenterAssignments(problem);
+    
     auto staticPaths = solveStaticProblem(problem);
+    cout << "\n========== 配送中心车辆和任务分配 ==========" << endl;
+    printCenterAssignments(problem);
     
     // 计算静态阶段的最大完成时间
     double staticMaxTime = 0.0;

@@ -122,7 +122,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
                     0.0,    // 普通车辆无燃料限制
                     id //这里的id是配送中心ID
                 });
-                problem.centers[i].vehicles.push_back(vehicleIdCounter); // 记录车辆ID
+                problem.centers[i].vehicles.push_back(vehicleIdCounter); // 记录配送中心索引i内的车辆ID
                 vehicleIdCounter++;
             }
         }
@@ -381,7 +381,7 @@ void printDeliveryResults(
     cout << "总成本: " << totalCost << " 元" << endl;
 }
 
-// 添加一个新函数用于打印配送中心的分配情况
+// 输出配送中心的车辆分配和任务分配情况
 void printCenterAssignments(const DeliveryProblem& problem) {
     cout << "配送中心任务分配结果：" << endl;
     
@@ -391,7 +391,7 @@ void printCenterAssignments(const DeliveryProblem& problem) {
         centerToVehicles[vehicle.centerId].push_back(vehicle.id);
     }
     
-    // 输出每个中心的车辆分配
+    // 输出每个中心的车辆分配和任务分配
     for (const auto& center : problem.centers) {
         cout << "配送中心 #" << center.id << " (";
         
@@ -420,5 +420,21 @@ void printCenterAssignments(const DeliveryProblem& problem) {
             cout << centerToVehicles[center.id][i];
         }
         cout << endl;
+        
+        // 输出任务分配情况
+        auto tasksIt = problem.centerToTasks.find(center.id);
+        if (tasksIt != problem.centerToTasks.end() && !tasksIt->second.empty()) {
+            cout << "  分配任务数: " << tasksIt->second.size() << "，任务IDs: ";
+            for (size_t i = 0; i < std::min(tasksIt->second.size(), size_t(10)); ++i) {
+                if (i > 0) cout << ", ";
+                cout << tasksIt->second[i];
+            }
+            if (tasksIt->second.size() > 10) {
+                cout << "...";
+            }
+            cout << endl;
+        } else {
+            cout << "  没有分配任务" << endl;
+        }
     }
 }

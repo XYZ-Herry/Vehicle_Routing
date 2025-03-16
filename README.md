@@ -56,7 +56,6 @@
 chmod +x build_and_run.sh
 ./build_and_run.sh
 ```
-结果将生成在主目录下的result.txt文件里面
 
 ## 📊 输入输出说明
 

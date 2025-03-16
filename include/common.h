@@ -35,8 +35,8 @@ struct TaskPoint
     double x, y;                // 坐标（公里）
     double time;                // 出现时间（小时）
     int centerId;               // 所属配送中心ID
-    double pickweight;              // 取货重量（千克）
-    double sendWeight;      // 送货重量（千克）
+    double pickweight;          // 取货重量（千克）
+    double sendWeight;          // 送货重量（千克）
 };
 
 // 车辆/无人机结构体
@@ -96,9 +96,9 @@ struct DeliveryProblem
     int initialDemandCount;                            // 初始需求点数量
     int extraDemandCount;                              // 额外需求点数量
     
-    // 存储所有点的坐标（ID -> 坐标）
-    std::unordered_map<int, std::pair<double, double>> coordinates;
-
+    
+    std::unordered_map<int, std::pair<double, double>> coordinates; // 存储所有点的坐标（ID -> 坐标）
+    std::unordered_map<int, std::vector<int>> centerToTasks; // 存储每个中心ID分配的任务ID列表
     // 高峰时段参数
     double morningPeakFactor = 0.3;  // 早高峰速度系数（7:00-9:00）
     double eveningPeakFactor = 0.3;  // 晚高峰速度系数（17:00-18:00）
