@@ -64,7 +64,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             problem.network.peakFactors[node2][node1] = {morningPeakFactor, eveningPeakFactor}; // 假设道路是双向的
         }
 
-        // 使用 Floyd-Warshall 算法计算所有点对最短路径
+        // 使用 Floyd算法计算所有点对最短路径
         floyd(problem.network);
 
         // 初始化任务点容器
@@ -235,7 +235,7 @@ void floyd(RouteNetwork &network)
         }
     }
 
-    // 标准的Floyd-Warshall算法
+    // 标准的Floyd算法
     for (int k = 0; k < n; k++) {
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
@@ -283,8 +283,8 @@ double getDistance(int id1, int id2, const DeliveryProblem& problem, bool isDron
         if (problem.network.distances.count(id1) && problem.network.distances.at(id1).count(id2)) {
             return problem.network.distances.at(id1).at(id2);
         }
-        //return euclideanDist * 1.2;  // 如果路网中没有这两点间的距离，使用欧几里得距离的1.2倍
-        return std::numeric_limits<double>::infinity();
+ 
+        return std::numeric_limits<double>::infinity();//如果路网中没有这两点间的距离，设置为无穷大
     }
 }
 

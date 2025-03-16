@@ -95,24 +95,20 @@ vector<pair<int, int>> geneticAlgorithm(
     double timeWeight)
 {
     vector<pair<int, int>> finalAssignments;
-    srand(time(0));  // 随机数初始化
+    srand(time(nullptr));  // 随机数初始化
 
     // 按配送中心分组处理任务
     for (const auto& center : problem.centers) {
-        vector<int> centerTaskIds;      // 该中心负责的任务ID
-        
-        // 收集该中心的任务ID
-        for (size_t i = 0; i < problem.tasks.size(); ++i) {
-            if (problem.tasks[i].centerId == center.id) {
-                centerTaskIds.push_back(problem.tasks[i].id);  // 使用任务ID
-            }
+        // 直接从problem.centerToTasks获取该中心负责的任务ID
+        auto tasksIt = problem.centerToTasks.find(center.id);
+        if (tasksIt == problem.centerToTasks.end() || tasksIt->second.empty()) {
+            continue;  // 跳过没有任务的中心
         }
         
-        // 获取中心的车辆ID列表
-        vector<int> centerVehicleIds;
-        for (int vehicleId : center.vehicles) {
-            centerVehicleIds.push_back(vehicleId);
-        }
+        const vector<int>& centerTaskIds = tasksIt->second;  // 该中心负责的任务ID
+        
+        // 获取中心的车辆ID列表（已经存储在center.vehicles中）
+        vector<int> centerVehicleIds = center.vehicles;
 
         if (centerTaskIds.empty() || centerVehicleIds.empty()) continue;
 
