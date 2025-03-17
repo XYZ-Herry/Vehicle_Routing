@@ -1,4 +1,4 @@
-#include "genetic_algorithm.h"
+#include "static_genetic.h"
 #include "path_optimizer.h"
 #include "common.h"
 #include <algorithm>
@@ -87,7 +87,7 @@ double calculateFitness(
 }
 
 // 遗传算法主函数
-vector<pair<int, int>> geneticAlgorithm(
+vector<pair<int, int>> Static_GeneticAlgorithm(
     const DeliveryProblem& problem,
     int populationSize,
     int generations,

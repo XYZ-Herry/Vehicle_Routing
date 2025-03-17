@@ -10,7 +10,7 @@ set(SOURCES
     src/main.cpp
     src/common.cpp
     src/task_assigner.cpp
-    src/genetic_algorithm.cpp
+    src/static_genetic.cpp
     src/path_optimizer.cpp
     src/solver.cpp
     src/dynamic_genetic.cpp

@@ -1,7 +1,7 @@
 #include "solver.h"
 #include "task_assigner.h"
 #include "path_optimizer.h"
-#include "genetic_algorithm.h"
+#include "static_genetic.h"
 #include "dynamic_genetic.h"
 #include <algorithm>
 #include <iostream>
@@ -103,7 +103,7 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> solveS
 {
     assignTasksToCenters(problem);
     
-    auto vehicleTaskAssignments = geneticAlgorithm(
+    auto vehicleTaskAssignments = Static_GeneticAlgorithm(
         problem,
         100,    // 种群大小
         100,    // 迭代次数
