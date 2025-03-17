@@ -168,7 +168,7 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> solveD
     }
     
     // 优化所有车辆的路径
-    return optimizeDynamicPaths(problem, assignments, staticPaths);
+    return optimizeDynamicPaths(problem, assignments);
 }
 
 // 识别需要重新安排的任务

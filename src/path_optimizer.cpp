@@ -156,8 +156,8 @@ vector<double> calculateCompletionTimes(
 // 优化动态阶段的所有路径 - 修改为返回<车辆ID, <路径, 时间>>的形式
 std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimizeDynamicPaths(
     const DeliveryProblem& problem,
-    const std::vector<std::pair<int, int>>& dynamicAssignments, // (车辆ID, 任务ID)对
-    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths)
+    const std::vector<std::pair<int, int>>& dynamicAssignments // (车辆ID, 任务ID)对
+)
 {
     // 按车辆ID收集所有分配的任务ID
     std::unordered_map<int, std::vector<int>> vehicleIdToTaskIds; // 车辆ID -> 任务ID列表

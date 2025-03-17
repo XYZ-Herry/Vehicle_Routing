@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
     for (const auto& [vehicleId, pair] : staticPaths) {
         const auto& [path, completionTimes] = pair;
         if (!completionTimes.empty()) {
-            staticMaxTime = std::max(staticMaxTime, completionTimes.back());
+            staticMaxTime = std::max(staticMaxTime, completionTimes[completionTimes.size() - 2]);
         }
     }
     

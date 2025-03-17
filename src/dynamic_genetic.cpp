@@ -45,7 +45,7 @@ double calculateDynamicFitness(
     }
     
     // 使用optimizeDynamicPaths优化路径
-    auto optimizedPaths = optimizeDynamicPaths(problem, assignments, {});
+    auto optimizedPaths = optimizeDynamicPaths(problem, assignments);
     
     // 计算优化路径的适应度值
     double maxCompletionTime = 0.0;

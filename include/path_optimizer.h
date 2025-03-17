@@ -28,7 +28,6 @@ std::vector<double> calculateCompletionTimes(
 // 优化动态阶段的所有路径 - 更新返回类型
 std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimizeDynamicPaths(
     const DeliveryProblem& problem,
-    const std::vector<std::pair<int, int>>& dynamicAssignments,
-    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths = {});
+    const std::vector<std::pair<int, int>>& dynamicAssignments);
 
 #endif // PATH_OPTIMIZER_H

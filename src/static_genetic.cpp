@@ -192,15 +192,34 @@ vector<pair<int, int>> Static_GeneticAlgorithm(
                 if ((rand() % 100) < mutationRate * 100) {
                     int taskIndex = rand() % centerTaskIds.size();
                     int oldVehicleId = individual[taskIndex];
-                    do {
-                        individual[taskIndex] = centerVehicleIds[rand() % centerVehicleIds.size()];
-                    } while (calculateFitness(individual, centerTaskIds, 
-                        problem.tasks, problem.vehicles, problem, timeWeight) >= std::numeric_limits<double>::max() &&
-                            individual[taskIndex] != oldVehicleId);
                     
-                    if (calculateFitness(individual, centerTaskIds, 
-                        problem.tasks, problem.vehicles, problem, timeWeight) >= std::numeric_limits<double>::max()) {
-                        individual[taskIndex] = oldVehicleId;  // 如果变异后不可行，恢复原值
+                    // 尝试最多10次找到可行的变异
+                    bool foundValid = false;
+                    for (int attempt = 0; attempt < 10; ++attempt) {
+                        // 选择新的车辆ID
+                        int newVehicleId = centerVehicleIds[rand() % centerVehicleIds.size()];
+                        if (newVehicleId == oldVehicleId) continue; // 跳过相同的车辆
+                        
+                        // 临时应用变异
+                        individual[taskIndex] = newVehicleId;
+                        
+                        // 计算一次适应度
+                        double fitness = calculateFitness(individual, centerTaskIds, 
+                            problem.tasks, problem.vehicles, problem, timeWeight);
+                        
+                        // 检查可行性
+                        if (fitness < std::numeric_limits<double>::max()) {
+                            foundValid = true;
+                            break; // 找到可行解，退出循环
+                        }
+                        
+                        // 不可行，恢复原值
+                        individual[taskIndex] = oldVehicleId;
+                    }
+                    
+                    // 如果没有找到可行解，确保还原到原始状态
+                    if (!foundValid) {
+                        individual[taskIndex] = oldVehicleId;
                     }
                 }
             }
