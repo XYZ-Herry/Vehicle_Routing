@@ -46,7 +46,7 @@ struct Vehicle
     double speed;               // 速度（公里/小时）
     double cost;                // 单位距离成本
     double maxLoad;             // 最大载重（千克，0表示普通车辆）
-    double fuel;                // 电池容量（小时，仅用于无人机）
+    double maxfuel;                // 电池最大容量（小时，仅用于无人机）
     int centerId;               // 所属配送中心ID
 };
 

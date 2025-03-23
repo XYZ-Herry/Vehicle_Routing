@@ -23,7 +23,7 @@ vector<int> optimizePathForVehicle(
     if (assignedTaskIds.empty()) {
         return {vehicle.centerId, vehicle.centerId};
     }
-
+    
     int centerId = vehicle.centerId;
     
     // 使用贪心算法（最近邻法）构建路径
