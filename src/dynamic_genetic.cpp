@@ -49,6 +49,7 @@ double calculateDynamicFitness(
     
     // 计算优化路径的适应度值
     double maxCompletionTime = 0.0;
+    double maxInitialTaskCompletionTime = 0.0;  // 追踪初始任务的最晚完成时间
     double totalCost = 0.0;
     int tasksAssigned = 0;
     
@@ -56,14 +57,20 @@ double calculateDynamicFitness(
         const auto& [path, completionTimes] = pathData;
         if (path.size() <= 2) continue;  // 跳过没有任务的路径
         
-        // 计算真实任务数量
+        // 计算真实任务数量并追踪初始任务
         int realTaskCount = 0;
-        for (size_t i = 0; i < path.size(); i++) {
+        for (size_t i = 1; i < path.size() - 1; i++) {  // 跳过首尾配送中心
             int pointId = path[i];
-            // 直接使用problem.centerIds
-            if (problem.centerIds.count(pointId) == 0) {
-                // 如果不是配送中心ID，则是任务点
+            if (problem.centerIds.count(pointId) == 0) {  // 确认是任务点
                 realTaskCount++;
+                
+                // 检查是否为初始任务
+                int taskIndex = problem.taskIdToIndex.at(pointId);
+                if (taskIndex < problem.initialDemandCount) {
+                    // 记录此初始任务的完成时间
+                    double taskCompletionTime = completionTimes[i];
+                    maxInitialTaskCompletionTime = std::max(maxInitialTaskCompletionTime, taskCompletionTime);
+                }
             }
         }
         
@@ -87,19 +94,19 @@ double calculateDynamicFitness(
         return std::numeric_limits<double>::max();
     }
     
-    // 考虑静态阶段的最大完成时间因素
-    double dynamicTimePenalty = (maxCompletionTime > staticMaxTime) ? 
-                               (maxCompletionTime - staticMaxTime) * 1.5 : 0.0;
+    // 只针对初始任务应用延迟惩罚
+    double dynamicTimePenalty = (maxInitialTaskCompletionTime > staticMaxTime) ? 
+                              (maxInitialTaskCompletionTime - staticMaxTime) * DeliveryProblem::DEFAULT_DELAY_PENALTY : 0.0;
     
     // 计算加权适应度值
     return timeWeight * (maxCompletionTime + dynamicTimePenalty) + 
            (1.0 - timeWeight) * totalCost;
 }
 
-// 改进的动态遗传算法，所有任务参与遗传 - 更新静态路径参数类型
+// 改进的动态遗传算法，所有任务参与遗传
 vector<pair<int, int>> dynamicGeneticAlgorithm(
     const DeliveryProblem& problem,
-    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
+    const unordered_map<int, pair<vector<int>, vector<double>>>& staticPaths,
     const vector<int>& delayedTasks,
     const vector<int>& newTasks,
     int populationSize,

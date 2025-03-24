@@ -14,7 +14,7 @@ double calculateFitness(
     const DeliveryProblem& problem,
     double timeWeight);
 
-// 静态遗传算法主函数
+// 遗传算法主函数声明
 std::vector<std::pair<int, int>> Static_GeneticAlgorithm(
     const DeliveryProblem& problem,
     int populationSize,

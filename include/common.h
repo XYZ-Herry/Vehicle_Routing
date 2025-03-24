@@ -83,10 +83,33 @@ struct RouteNetwork
 // 配送问题信息
 struct DeliveryProblem
 {
-    // 默认值定义
-    static constexpr double DEFAULT_DRONE_FUEL = 1.0;   // 默认无人机电池容量（小时）
-    static constexpr double DEFAULT_DRONE_LOAD = 10.0;   // 默认无人机最大载重（千克）
-    static constexpr int DEFAULT_CENTER_ID = -1;        // 默认配送中心ID
+    // 已有的默认值定义
+    static constexpr double DEFAULT_DRONE_FUEL = 1.0;      // 默认无人机电池容量（小时）
+    static constexpr double DEFAULT_DRONE_LOAD = 10.0;     // 默认无人机最大载重（千克）
+    static constexpr int DEFAULT_CENTER_ID = -1;           // 默认配送中心ID
+    
+    // 送货取货相关默认值
+    static constexpr double DEFAULT_PICKUP_WEIGHT = 5.0;   // 默认取货重量（千克）
+    static constexpr double DEFAULT_DELIVERY_WEIGHT = 0.0; // 默认送货重量（千克）
+    static constexpr double DEFAULT_SERVICE_TIME = 0.0;    // 默认服务时间（小时）
+    
+    // 遗传算法默认参数
+    static constexpr int DEFAULT_POPULATION_SIZE = 100;    // 默认种群大小
+    static constexpr int DEFAULT_GENERATIONS = 100;        // 默认迭代代数
+    static constexpr double DEFAULT_MUTATION_RATE = 0.1;   // 默认变异率
+    
+    // 动态规划参数
+    static constexpr double DEFAULT_DELAY_PENALTY = 0.5;   // 延迟任务惩罚系数
+    
+    // 交通参数默认值
+    static constexpr double DEFAULT_MORNING_PEAK_FACTOR = 0.3;  // 默认早高峰速度系数（7:00-9:00）
+    static constexpr double DEFAULT_EVENING_PEAK_FACTOR = 0.3;  // 默认晚高峰速度系数（17:00-18:00）
+    
+    // 时间段定义
+    static constexpr double MORNING_PEAK_START = 7.0;      // 早高峰开始时间
+    static constexpr double MORNING_PEAK_END = 9.0;        // 早高峰结束时间
+    static constexpr double EVENING_PEAK_START = 17.0;     // 晚高峰开始时间
+    static constexpr double EVENING_PEAK_END = 19.0;       // 晚高峰结束时间
 
     std::vector<TaskPoint> tasks;                       // 所有任务点
     std::vector<Vehicle> vehicles;                      // 所有车辆（包括无人机）
@@ -100,8 +123,8 @@ struct DeliveryProblem
     std::unordered_map<int, std::pair<double, double>> coordinates; // 存储所有点的坐标（ID -> 坐标）
     std::unordered_map<int, std::vector<int>> centerToTasks; // 存储每个中心ID分配的任务ID列表
     // 高峰时段参数
-    double morningPeakFactor = 0.3;  // 早高峰速度系数（7:00-9:00）
-    double eveningPeakFactor = 0.3;  // 晚高峰速度系数（17:00-18:00）
+    double morningPeakFactor = DEFAULT_MORNING_PEAK_FACTOR;  // 早高峰速度系数
+    double eveningPeakFactor = DEFAULT_EVENING_PEAK_FACTOR;  // 晚高峰速度系数
 
     // ID 到索引的映射
     std::unordered_map<int, int> centerIdToIndex;    // 中心ID到索引的映射

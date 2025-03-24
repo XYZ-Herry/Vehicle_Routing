@@ -51,17 +51,14 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             // 将米转换为公里
             length /= 1000.0;
             
-            // 默认的高峰期系数，如果输入文件中没有提供
-            double morningPeakFactor = 0.3;
-            double eveningPeakFactor = 0.3;
             
-            problem.network.edges[i] = {node1, node2, length, morningPeakFactor, eveningPeakFactor};
+            problem.network.edges[i] = {node1, node2, length, DeliveryProblem::DEFAULT_MORNING_PEAK_FACTOR, DeliveryProblem::DEFAULT_EVENING_PEAK_FACTOR};
             problem.network.distances[node1][node2] = length;
             problem.network.distances[node2][node1] = length;
             
             // 存储高峰期系数
-            problem.network.peakFactors[node1][node2] = {morningPeakFactor, eveningPeakFactor};
-            problem.network.peakFactors[node2][node1] = {morningPeakFactor, eveningPeakFactor}; // 假设道路是双向的
+            problem.network.peakFactors[node1][node2] = {DeliveryProblem::DEFAULT_MORNING_PEAK_FACTOR, DeliveryProblem::DEFAULT_EVENING_PEAK_FACTOR};
+            problem.network.peakFactors[node2][node1] = {DeliveryProblem::DEFAULT_MORNING_PEAK_FACTOR, DeliveryProblem::DEFAULT_EVENING_PEAK_FACTOR}; // 假设道路是双向的
         }
 
         // 使用 Floyd算法计算所有点对最短路径
@@ -84,8 +81,8 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             problem.tasks[i] = {
                 id, x, y, 0.0,    
                 DeliveryProblem::DEFAULT_CENTER_ID,
-                1.0,  // 默认取货重量1kg
-                0.0   // 默认送货重量1kg
+                DeliveryProblem::DEFAULT_PICKUP_WEIGHT,
+                DeliveryProblem::DEFAULT_DELIVERY_WEIGHT
             };
             problem.coordinates[id] = {x, y};  // 存储坐标映射
             cout << "任务点 " << id << ": (" << x << " km, " << y << " km)" << endl;
@@ -175,8 +172,8 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             problem.tasks[initialDemandCount + i] = {
                 uniqueId, x, y, time,
                 DeliveryProblem::DEFAULT_CENTER_ID,
-                1.0,  // 默认重量1kg
-                0.0   // 默认重量1kg
+                DeliveryProblem::DEFAULT_PICKUP_WEIGHT,
+                DeliveryProblem::DEFAULT_DELIVERY_WEIGHT
             };
             problem.coordinates[uniqueId] = {x, y};  // 存储坐标映射
             cout << "任务点 " << uniqueId << " (原ID:" << id << "): (" << x << " km, " << y << " km)" << endl;

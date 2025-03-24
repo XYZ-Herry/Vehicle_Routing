@@ -112,9 +112,9 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> solveS
     
     auto vehicleTaskAssignments = Static_GeneticAlgorithm(
         problem,
-        100,    // 种群大小
-        100,    // 迭代次数
-        0.1,    // 变异率
+        DeliveryProblem::DEFAULT_POPULATION_SIZE,
+        DeliveryProblem::DEFAULT_GENERATIONS,
+        DeliveryProblem::DEFAULT_MUTATION_RATE,
         problem.timeWeight
     );
     

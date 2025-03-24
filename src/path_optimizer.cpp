@@ -222,13 +222,13 @@ double getSpeedFactor(double currentTime, int fromId, int toId, const DeliveryPr
     if (it1 != problem.network.peakFactors.end()) {
         auto it2 = it1->second.find(toId);
         if (it2 != it1->second.end()) {
-            // 判断是否在早高峰（7:00-9:00）
-            if (hour >= 7.0 && hour <= 9.0) {
+            // 判断是否在早高峰
+            if (hour >= DeliveryProblem::MORNING_PEAK_START && hour <= DeliveryProblem::MORNING_PEAK_END) {
                 return it2->second.first;  // 早高峰系数
             }
             
-            // 判断是否在晚高峰（17:00-18:00）
-            if (hour >= 17.0 && hour <= 18.0) {
+            // 判断是否在晚高峰
+            if (hour >= DeliveryProblem::EVENING_PEAK_START && hour <= DeliveryProblem::EVENING_PEAK_END) {
                 return it2->second.second;  // 晚高峰系数
             }
         }
