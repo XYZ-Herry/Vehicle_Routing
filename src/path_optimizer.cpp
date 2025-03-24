@@ -177,7 +177,7 @@ vector<int> optimizePathForVehicle(
                     maxProcessLoad = 0.0; // 重置过程最大载重
                 } else {
                     // 电量不足以返回，异常情况
-                    std::cerr << "警告: 无人机 #" << vehicle.id << " 电量不足以返回配送中心！" << std::endl;
+                    std::cerr << "警告: 无人机 #" << vehicle.id << " 无解" << std::endl;
                     return {}; // 返回空路径表示规划失败
                 }
             }
@@ -239,41 +239,43 @@ double getSpeedFactor(double currentTime, int fromId, int toId, const DeliveryPr
 
 // 计算某辆车路径上每个任务点的完成时间
 vector<double> calculateCompletionTimes(
-    const vector<int> &path,  // 路径中存储的是任务ID，不是索引
+    const vector<int> &path, 
     const vector<TaskPoint> &tasks,
     const Vehicle &vehicle,
     const DeliveryProblem& problem,
     bool considerTraffic)
 {
     if (path.empty()) {
-        return {0.0};
+        return {};
     }
     
-    vector<double> completionTimes;
+    vector<double> completionTimes(path.size(), 0.0);
     double currentTime = 0.0;
-    double currentLoad = 0.0;
-    int currentPosId = path[0];  // 第一个位置是中心ID
     
-    for (size_t i = 1; i < path.size(); ++i) {
-        int nextPosId = path[i];  // 下一个位置ID
+    // 遍历路径中的每一段
+    for (size_t i = 0; i < path.size() - 1; i++) {
+        int fromId = path[i];
+        int toId = path[i+1];
         
-        // 直接使用ID计算距离
-        double dist = getDistance(currentPosId, nextPosId, problem, vehicle.maxLoad > 0);
+        // 计算距离
+        double distance = getDistance(fromId, toId, problem, vehicle.maxLoad > 0);
         
-        // 考虑高峰期因素
-        double speedFactor = 1.0;
-        if (considerTraffic) {
-            speedFactor = getSpeedFactor(currentTime, currentPosId, nextPosId, problem);
+        // 如果考虑交通，车辆调整速度
+        double speed = vehicle.speed;
+        if (considerTraffic && vehicle.maxLoad > 0) {
+            double speedFactor = getSpeedFactor(currentTime, fromId, toId, problem);
+            speed *= speedFactor;
         }
         
-        double travelTime = dist / (vehicle.speed * speedFactor);
+        // 计算当前段的行驶时间
+        double travelTime = distance / speed;
+        
+        // 更新当前时间
         currentTime += travelTime;
-        completionTimes.push_back(currentTime);
-        currentPosId = nextPosId;
-    }
-    
-    if (completionTimes.empty()) {
-        completionTimes.push_back(0.0);
+        
+        // 记录到达toId的时间
+        completionTimes[i+1] = currentTime;
+        
     }
     
     return completionTimes;

@@ -68,34 +68,41 @@ pair<double, double> calculateTotalTimeAndCost(
     const DeliveryProblem& problem,
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& allPaths)
 {
-    double totalTime = 0.0;
+    double maxCompletionTime = 0.0;
     double totalCost = 0.0;
     
-    for (const auto &pair : allPaths) {
-        int vehicleId = pair.first;
-        const auto &[path, completionTimes] = pair.second;
-        if (!path.empty()) {
-            // 更新最大完成时间
-            if (completionTimes.size() >= 2) {
-                totalTime = std::max(totalTime, completionTimes[completionTimes.size()-2]);
+    for (const auto& [vehicleId, pathData] : allPaths) {
+        const auto& [path, times] = pathData;
+        
+        // 跳过空路径
+        if (path.empty() || times.empty()) {
+            continue;
+        }
+        
+        // 使用时间数组的倒数第二个元素作为该车辆的完成时间
+        // (如果数组长度至少为2)
+        if (times.size() >= 2) {
+            double vehicleCompletionTime = times[times.size() - 2];
+            maxCompletionTime = std::max(maxCompletionTime, vehicleCompletionTime);
+        }
+        
+        // 计算实际任务数量（不包括配送中心）
+        int actualTaskCount = 0;
+        for (int pointId : path) {
+            if (problem.centerIds.count(pointId) == 0) {
+                // 如果不是配送中心ID，则是任务点
+                actualTaskCount++;
             }
-            
-            // 计算实际任务数量
-            int actualTaskCount = 0;
-            for (int pointId : path) {
-                if (problem.centerIds.count(pointId) == 0) {
-                    // 如果不是配送中心ID，则是任务点
-                    actualTaskCount++;
-                }
-            }
-            
-            // 计算运送成本
+        }
+        
+        // 查找车辆信息以获取成本
+        if (problem.vehicleIdToIndex.count(vehicleId)) {
             int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
             totalCost += actualTaskCount * problem.vehicles[vehicleIndex].cost;
         }
     }
     
-    return {totalTime, totalCost};
+    return {maxCompletionTime, totalCost};
 }
 
 // 求解静态配送问题
@@ -183,27 +190,55 @@ void identifyTasksForRescheduling(
     for (size_t i = problem.initialDemandCount; i < problem.tasks.size(); ++i) {
         newTasks.push_back(problem.tasks[i].id);  // 添加任务ID而不是索引
     }
-    
+    cout << "--------------------------------" << endl;
+    std::cout << "考虑高峰期后的静态阶段路径时间：" << std::endl;
     // 检查每个车辆的路径，找出在高峰期会延迟的任务
     for (const auto& [vehicleId, pair] : staticPaths) {
         const auto& [path, staticTimes] = pair;
         if (path.empty()) continue;
         
+        // 获取车辆信息
+        int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
+        const Vehicle& vehicle = problem.vehicles[vehicleIndex];
+        bool isDrone = (vehicle.maxLoad > 0);
+        
         // 重新计算考虑高峰期的完成时间
         vector<double> dynamicTimes = calculateCompletionTimes(
-            path, problem.tasks, problem.vehicles[vehicleId], problem, true);
+            path, problem.tasks, vehicle, problem, true);
+        
+        // 输出该车辆在高峰期的路径时间
+        std::cout << (isDrone ? "无人机" : "车辆") << " #" << vehicleId << " (" 
+                  << (isDrone ? "无人机" : "卡车") << ") 的路径: ";
+        
+        // 输出路径，区分中心和任务点
+        for (size_t i = 0; i < path.size(); ++i) {
+            bool isCenter = problem.centerIds.count(path[i]) > 0;
+            std::cout << (isCenter ? "中心#" : "任务#") << path[i];
+            if (i < path.size() - 1) std::cout << " -> ";
+        }
+        std::cout << "\n";
+        
+        // 输出完成时间
+        std::cout << "完成时间: ";
+        for (size_t i = 0; i < path.size(); ++i) {
+            std::cout << " " << std::fixed << std::setprecision(3) << dynamicTimes[i] << "h";
+            
+            // 如果有延迟，标记出来
+            if (i < staticTimes.size() && dynamicTimes[i] > staticTimes[i] + 0.001) {
+                std::cout << "(延迟)";
+            }
+            
+            if (i < path.size() - 1) std::cout << ",";
+        }
+        std::cout << "\n\n";
         
         // 比较每个任务点，找出延迟的任务
         for (size_t i = 0; i < std::min(staticTimes.size(), dynamicTimes.size()); ++i) {
-            if (dynamicTimes[i] > staticMaxTime && staticTimes[i] <= staticMaxTime) {
-                // 找到路径中对应的任务点ID (不是索引)
-                if (i + 1 < path.size()) {  // 确保索引在范围内
-                    int taskId = path[i + 1]; // +1 因为第一个是配送中心
-                    
-                    // 检查是否为配送中心ID，如果是则跳过
-                    if (problem.centerIds.count(taskId) == 0) {
-                        delayedTasks.push_back(taskId); // 这里存的是任务ID
-                    }
+            // 判断是否为任务点（不是配送中心）
+            if (problem.centerIds.count(path[i]) == 0) {
+                // 如果动态时间超过了静态最大时间，但静态时间没有超过，则标记为延迟任务
+                if (dynamicTimes[i] > staticMaxTime && staticTimes[i] <= staticMaxTime) {
+                    delayedTasks.push_back(path[i]); // 直接使用path[i]作为任务ID
                 }
             }
         }
