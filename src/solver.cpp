@@ -199,7 +199,11 @@ void identifyTasksForRescheduling(
                 // 找到路径中对应的任务点ID (不是索引)
                 if (i + 1 < path.size()) {  // 确保索引在范围内
                     int taskId = path[i + 1]; // +1 因为第一个是配送中心
-                    delayedTasks.push_back(taskId); // 这里存的是任务ID
+                    
+                    // 检查是否为配送中心ID，如果是则跳过
+                    if (problem.centerIds.count(taskId) == 0) {
+                        delayedTasks.push_back(taskId); // 这里存的是任务ID
+                    }
                 }
             }
         }

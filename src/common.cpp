@@ -85,7 +85,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
                 id, x, y, 0.0,    
                 DeliveryProblem::DEFAULT_CENTER_ID,
                 1.0,  // 默认取货重量1kg
-                1.0   // 默认送货重量1kg
+                0.0   // 默认送货重量1kg
             };
             problem.coordinates[id] = {x, y};  // 存储坐标映射
             cout << "任务点 " << id << ": (" << x << " km, " << y << " km)" << endl;
@@ -176,7 +176,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
                 uniqueId, x, y, time,
                 DeliveryProblem::DEFAULT_CENTER_ID,
                 1.0,  // 默认重量1kg
-                1.0   // 默认重量1kg
+                0.0   // 默认重量1kg
             };
             problem.coordinates[uniqueId] = {x, y};  // 存储坐标映射
             cout << "任务点 " << uniqueId << " (原ID:" << id << "): (" << x << " km, " << y << " km)" << endl;

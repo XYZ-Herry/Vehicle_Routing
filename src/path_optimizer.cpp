@@ -26,53 +26,179 @@ vector<int> optimizePathForVehicle(
     
     int centerId = vehicle.centerId;
     
-    // 使用贪心算法（最近邻法）构建路径
-    vector<int> path;
-    vector<bool> visited(assignedTaskIds.size(), false);
+    // 检查是否为无人机（无人机有最大载重限制）
+    bool isDrone = (vehicle.maxLoad > 0);
     
-    // 从配送中心开始
-    path.push_back(centerId);
-    int currentPos = centerId;
-    
-    // 根据距离选择下一个访问点，直到所有点都被访问
-    while (anyTaskUnvisited(visited, assignedTaskIds)) {
-        double minDistance = std::numeric_limits<double>::max();
-        int nextIndex = -1;
-        int nextId = -1;
+    if (!isDrone) {
+        // 普通车辆使用原来的最近邻算法
+        vector<int> path;
+        vector<bool> visited(assignedTaskIds.size(), false);
         
-        for (size_t i = 0; i < assignedTaskIds.size(); i++) {
-            if (!visited[i]) {
-                int taskId = assignedTaskIds[i];
+        // 从配送中心开始
+        path.push_back(centerId);
+        int currentPos = centerId;
+        
+        // 根据距离选择下一个访问点，直到所有点都被访问
+        while (anyTaskUnvisited(visited, assignedTaskIds)) {
+            double minDistance = std::numeric_limits<double>::max();
+            int nextIndex = -1;
+            int nextId = -1;
+            
+            for (size_t i = 0; i < assignedTaskIds.size(); i++) {
+                if (!visited[i]) {
+                    int taskId = assignedTaskIds[i];
+                    
+                    double distance = getDistance(
+                        currentPos, 
+                        taskId, 
+                        problem,
+                        false); // 非无人机
+                    
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nextIndex = i;
+                        nextId = taskId;
+                    }
+                }
+            }
+            
+            if (nextIndex != -1) {
+                visited[nextIndex] = true;
+                path.push_back(nextId);
+                currentPos = nextId;
+            } else {
+                break;  // 无法找到下一个点，结束
+            }
+        }
+        
+        // 回到配送中心
+        path.push_back(centerId);
+        
+        return path;
+    } else {
+        // 无人机路径规划，考虑电量和载重约束
+        vector<int> path;
+        vector<bool> visited(assignedTaskIds.size(), false);
+        
+        // 从配送中心开始
+        path.push_back(centerId);
+        int currentPos = centerId;
+        
+        // 无人机初始状态
+        double currentBattery = vehicle.maxfuel; // 满电量
+        double currentLoad = 0.0; // 初始载重为0
+        double maxProcessLoad = 0.0; // 一次行程中的最大载重
+        
+        // 当还有未访问的任务点时继续循环
+        while (anyTaskUnvisited(visited, assignedTaskIds)) {
+            double minDistance = std::numeric_limits<double>::max();
+            int nextIndex = -1;
+            int nextId = -1;
+            
+            // 寻找满足约束的最近任务点
+            for (size_t i = 0; i < assignedTaskIds.size(); i++) {
+                if (!visited[i]) {
+                    int taskId = assignedTaskIds[i];
+                    int taskIndex = problem.taskIdToIndex.at(taskId);
+                    const TaskPoint& task = tasks[taskIndex];
+                    
+                    // 计算到该任务点的距离
+                    double distanceToTask = getDistance(currentPos, taskId, problem, true);
+                    
+                    // 计算从该任务点到配送中心的距离
+                    double distanceToCenter = getDistance(taskId, centerId, problem, true);
+                    
+                    // 计算所需电量
+                    double batteryNeededToTask = distanceToTask / vehicle.speed;
+                    double batteryNeededToCenter = distanceToCenter / vehicle.speed;
+                    double totalBatteryNeeded = batteryNeededToTask + batteryNeededToCenter;
+                    
+                    // 检查电量约束
+                    if (totalBatteryNeeded > currentBattery) {
+                        continue; // 电量不足，跳过该任务点
+                    }
+                    
+                    // 检查载重约束
+                    bool isPickup = (task.pickweight > 0);
+                    
+                    if (isPickup) {
+                        // 取货点：检查当前载重 + 取货重量是否超过最大载重
+                        if (currentLoad + task.pickweight > vehicle.maxLoad) {
+                            continue; // 超过载重限制，跳过该任务点
+                        }
+                    } else {
+                        // 送货点：检查过程最大载重 + 送货重量是否超过最大载重
+                        if (maxProcessLoad + task.sendWeight > vehicle.maxLoad) {
+                            continue; // 超过载重限制，跳过该任务点
+                        }
+                    }
+                    
+                    // 如果满足所有约束，并且距离小于当前最小距离，更新最近任务点
+                    if (distanceToTask < minDistance) {
+                        minDistance = distanceToTask;
+                        nextIndex = i;
+                        nextId = taskId;
+                    }
+                }
+            }
+            
+            // 如果找到下一个可行的任务点
+            if (nextIndex != -1) {
+                int taskIndex = problem.taskIdToIndex.at(nextId);
+                const TaskPoint& nextTask = tasks[taskIndex];
+                double distanceToNext = getDistance(currentPos, nextId, problem, true);
                 
-                // 直接使用任务ID计算距离
-                double distance = getDistance(
-                    currentPos, 
-                    taskId, 
-                    problem,
-                    vehicle.maxLoad > 0);
+                // 更新状态
+                visited[nextIndex] = true;
+                path.push_back(nextId);
+                currentPos = nextId;
                 
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    nextIndex = i;
-                    nextId = taskId;
+                // 更新电量（距离/速度 = 消耗的小时数）
+                currentBattery -= distanceToNext / vehicle.speed;
+                
+                // 根据任务类型更新载重
+                bool isPickup = (nextTask.pickweight > 0);
+                if (isPickup) {
+                    currentLoad += nextTask.pickweight;
+                    maxProcessLoad = std::max(maxProcessLoad, currentLoad);
+                } else {
+                }
+            } else {
+                // 如果没有找到可行的下一个任务点，返回配送中心
+                double distanceToCenter = getDistance(currentPos, centerId, problem, true);
+                
+                // 检查是否有足够电量返回
+                if (currentBattery >= distanceToCenter / vehicle.speed) {
+                    path.push_back(centerId);
+                    // 回到配送中心后重置状态
+                    currentPos = centerId;
+                    currentBattery = vehicle.maxfuel; // 充满电
+                    currentLoad = 0.0; // 卸货
+                    maxProcessLoad = 0.0; // 重置过程最大载重
+                } else {
+                    // 电量不足以返回，异常情况
+                    std::cerr << "警告: 无人机 #" << vehicle.id << " 电量不足以返回配送中心！" << std::endl;
+                    return {}; // 返回空路径表示规划失败
                 }
             }
         }
         
-        if (nextIndex != -1) {
-            visited[nextIndex] = true;
-            path.push_back(nextId);
-            currentPos = nextId;
-        } else {
-            break;  // 无法找到下一个点，结束
+        // 如果当前不在配送中心，添加返回配送中心的路径
+        if (currentPos != centerId) {
+            double distanceToCenter = getDistance(currentPos, centerId, problem, true);
+            
+            // 检查是否有足够电量返回
+            if (currentBattery >= distanceToCenter / vehicle.speed) {
+                path.push_back(centerId);
+            } else {
+                // 电量不足以返回，异常情况
+                std::cerr << "警告: 无人机 #" << vehicle.id << " 电量不足以返回配送中心！" << std::endl;
+                return {}; // 返回空路径表示规划失败
+            }
         }
+        
+        return path;
     }
-    
-    if (currentPos != centerId) {
-        path.push_back(centerId);
-    }
-    
-    return path;
 }
 
 // 辅助函数：检查是否还有未访问的任务点
