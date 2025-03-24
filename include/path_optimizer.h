@@ -30,4 +30,12 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
     const DeliveryProblem& problem,
     const std::vector<std::pair<int, int>>& dynamicAssignments);
 
+// 考虑车辆协同的无人机路径规划 - 修改返回类型
+std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
+    const std::vector<int>& taskIds,
+    const std::vector<TaskPoint>& tasks,
+    const Vehicle& drone,
+    const DeliveryProblem& problem,
+    const std::unordered_map<int, std::pair<int, double>>& taskVisitInfo);
+
 #endif // PATH_OPTIMIZER_H

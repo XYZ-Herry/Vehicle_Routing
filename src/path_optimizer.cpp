@@ -4,6 +4,7 @@
 #include <iostream>
 #include <limits>
 #include <cmath>
+#include <set>
 #include <unordered_map>
 #include <iterator>
 
@@ -281,64 +282,368 @@ vector<double> calculateCompletionTimes(
     return completionTimes;
 }
 
-// 优化动态阶段的所有路径 - 修改为返回<车辆ID, <路径, 时间>>的形式
+// 优化动态阶段的所有路径 - 实现车机协同
 std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimizeDynamicPaths(
     const DeliveryProblem& problem,
     const std::vector<std::pair<int, int>>& dynamicAssignments // (车辆ID, 任务ID)对
 )
 {
-    // 按车辆ID收集所有分配的任务ID
-    std::unordered_map<int, std::vector<int>> vehicleIdToTaskIds; // 车辆ID -> 任务ID列表
+    // 按车辆ID收集任务
+    std::unordered_map<int, std::vector<int>> vehicleIdToTaskIds;
     for (const auto& assignment : dynamicAssignments) {
-        int vehicleId = assignment.first;
-        int taskId = assignment.second;
-        vehicleIdToTaskIds[vehicleId].push_back(taskId);
+        vehicleIdToTaskIds[assignment.first].push_back(assignment.second);
     }
     
-    /*
-        在这个函数里面实现车机协同的功能，目前只是各走各的，也没有考虑额外需求点时间的限制
-    */
-
-    
-    // 为每个车辆创建优化路径
+    // 结果存储
     std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> dynamicPaths;
     
-    // 为每个车辆优化路径
-    for (size_t vehicleIndex = 0; vehicleIndex < problem.vehicles.size(); ++vehicleIndex) {
-        int vehicleId = problem.vehicles[vehicleIndex].id;
-        int centerId = problem.vehicles[vehicleIndex].centerId;
+    // 任务点访问信息：<任务点ID, <车辆ID, 到达时间>>
+    std::unordered_map<int, std::pair<int, double>> taskVisitInfo;
+    
+    // 阶段1：先规划普通车辆路径
+    for (const auto& vehicle : problem.vehicles) {
+        int vehicleId = vehicle.id;
         
-        // 检查该车辆是否有分配的任务
+        // 跳过无人机
+        if (vehicle.maxLoad > 0) continue;
+        
+        // 检查是否有分配的任务
         if (vehicleIdToTaskIds.count(vehicleId) && !vehicleIdToTaskIds[vehicleId].empty()) {
-            // 提取分配给该车辆的所有任务ID
-            const auto& assignedTaskIds = vehicleIdToTaskIds[vehicleId];
-            
-            // 使用最近邻算法优化路径
+            // 规划路径
             std::vector<int> path = optimizePathForVehicle(
-                assignedTaskIds,  // 传递任务ID
+                vehicleIdToTaskIds[vehicleId],
                 problem.tasks,
-                problem.vehicles[vehicleIndex], //传递车辆
+                vehicle,
                 problem
             );
             
-            // 计算完成时间（考虑交通）
-            std::vector<double> completionTimes = calculateCompletionTimes(
-                path,  // path中存储的是任务点的ID
-                problem.tasks,
-                problem.vehicles[vehicleIndex], 
-                problem,
-                true  // 考虑交通影响
+            // 计算时间 - 车辆需要考虑交通
+            std::vector<double> times = calculateCompletionTimes(
+                path, problem.tasks, vehicle, problem, true
             );
             
-            dynamicPaths[vehicleId] = {path, completionTimes};
-        } 
-        else {
-            // 创建只包含起点和终点的路径
-            std::vector<int> path = {centerId, centerId};
-            std::vector<double> times = {0.0, 0.0};
+            // 保存路径和时间
             dynamicPaths[vehicleId] = {path, times};
+            
+            // 记录任务点访问信息
+            for (size_t i = 0; i < path.size(); ++i) {
+                int pointId = path[i];
+                if (problem.centerIds.count(pointId) == 0) {
+                    taskVisitInfo[pointId] = {vehicleId, times[i]};
+                }
+            }
+        } else {
+            // 空路径
+            dynamicPaths[vehicleId] = {{vehicle.centerId, vehicle.centerId}, {0.0, 0.0}};
         }
     }
     
-    return dynamicPaths;  // 返回<车辆ID, <路径(任务ID序列), 时间>>的形式
+    // 阶段2：规划无人机路径，考虑与车辆协同
+    for (const auto& drone : problem.vehicles) {
+        int droneId = drone.id;
+        
+        // 只处理无人机
+        if (drone.maxLoad <= 0) continue;
+        
+        // 检查是否有分配的任务
+        if (vehicleIdToTaskIds.count(droneId) && !vehicleIdToTaskIds[droneId].empty()) {
+            // 使用协同算法规划无人机路径
+            auto [path, times] = optimizeDronePathWithVehicles(
+                vehicleIdToTaskIds[droneId],
+                problem.tasks,
+                drone,
+                problem,
+                taskVisitInfo
+            );
+            
+            if (!path.empty()) {
+                // 直接使用返回的时间而不重新计算
+                dynamicPaths[droneId] = {path, times};
+            } else {
+                // 协同失败，使用标准算法
+                path = optimizePathForVehicle(
+                    vehicleIdToTaskIds[droneId],
+                    problem.tasks,
+                    drone,
+                    problem
+                );
+                
+                if (!path.empty()) {
+                    std::vector<double> times = calculateCompletionTimes(
+                        path, problem.tasks, drone, problem, false
+                    );
+                    dynamicPaths[droneId] = {path, times};
+                } else {
+                    // 空路径
+                    dynamicPaths[droneId] = {{drone.centerId, drone.centerId}, {0.0, 0.0}};
+                }
+            }
+        } else {
+            // 空路径
+            dynamicPaths[droneId] = {{drone.centerId, drone.centerId}, {0.0, 0.0}};
+        }
+    }
+    
+    return dynamicPaths;
+}
+
+// 考虑车辆协同的无人机路径规划
+std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
+    const std::vector<int>& taskIds,
+    const std::vector<TaskPoint>& tasks,
+    const Vehicle& drone,
+    const DeliveryProblem& problem,
+    const std::unordered_map<int, std::pair<int, double>>& taskVisitInfo
+) {
+    if (taskIds.empty()) {
+        return {{drone.centerId, drone.centerId}, {0.0, 0.0}};
+    }
+    
+    std::vector<int> path;
+    std::vector<double> times;  // 添加时间记录
+    std::vector<bool> visited(taskIds.size(), false);
+    int currentPos = drone.centerId;
+    path.push_back(currentPos);
+    times.push_back(0.0);  // 初始时间为0
+    
+    double currentBattery = drone.maxfuel;
+    double currentLoad = 0.0;
+    double maxProcessLoad = 0.0;
+    double currentTime = 0.0;
+    
+    while (anyTaskUnvisited(visited, taskIds)) {
+        double minDistance = std::numeric_limits<double>::max();
+        int nextIndex = -1;
+        int nextId = -1;
+        
+        // 寻找满足约束的下一个任务点
+        for (size_t i = 0; i < taskIds.size(); i++) {
+            if (visited[i]) continue;
+            
+            int taskId = taskIds[i];
+            int taskIndex = problem.taskIdToIndex.at(taskId);
+            const TaskPoint& task = tasks[taskIndex];
+            
+            // 检查载重约束
+            bool isPickup = (task.pickweight > 0);
+            if (isPickup) {
+                if (currentLoad + task.pickweight > drone.maxLoad) continue;
+            } else {
+                if (maxProcessLoad + task.sendWeight > drone.maxLoad) continue;
+            }
+            
+            // 计算到任务点的距离和电量需求
+            double distanceToTask = getDistance(currentPos, taskId, problem, true);
+            double batteryNeededToTask = distanceToTask / drone.speed;
+            
+            // 检查电量是否足够到达任务点
+            if (batteryNeededToTask > currentBattery) continue;
+            
+            // 检查从任务点是否有可行的返回点
+            bool canReturn = false;
+            
+            // 首先检查是否可以返回原配送中心
+            double distanceToOriginalCenter = getDistance(taskId, drone.centerId, problem, true);
+            double batteryToOriginalCenter = distanceToOriginalCenter / drone.speed;
+            
+            if (batteryNeededToTask + batteryToOriginalCenter <= currentBattery) {
+                canReturn = true;
+            }
+            
+            // 如果不能返回原配送中心，则检查是否可以返回车辆经过的任务点
+            if (!canReturn) {
+                for (const auto& [visitTaskId, info] : taskVisitInfo) {
+                    // 跳过当前检查的任务点
+                    if (visitTaskId == taskId) continue;
+                    
+                    double distanceToVisitPoint = getDistance(taskId, visitTaskId, problem, true);
+                    double batteryToVisitPoint = distanceToVisitPoint / drone.speed;
+                    double arrivalTime = currentTime + batteryNeededToTask + batteryToVisitPoint;
+                    
+                    // 如果无人机能到达该点，且在车辆到达前抵达
+                    if (batteryNeededToTask + batteryToVisitPoint <= currentBattery && 
+                        arrivalTime < info.second) {
+                        canReturn = true;
+                        break; // 只要找到一个可行的返回点即可
+                    }
+                }
+            }
+            
+            // 如果找不到可返回的点，跳过该任务点
+            if (!canReturn) continue;
+            
+            // 更新最近的下一个任务点
+            if (distanceToTask < minDistance) {
+                minDistance = distanceToTask;
+                nextIndex = i;
+                nextId = taskId;
+            }
+        }
+        
+        // 如果找到下一个可行任务点
+        if (nextIndex != -1) {
+            // 访问该任务点
+            visited[nextIndex] = true;
+            path.push_back(nextId);
+            
+            // 更新状态
+            double travelTime = minDistance / drone.speed;
+            currentTime += travelTime;
+            currentBattery -= travelTime;
+            currentPos = nextId;
+            
+            // 更新载重
+            int taskIndex = problem.taskIdToIndex.at(nextId);
+            const TaskPoint& task = tasks[taskIndex];
+            bool isPickup = (task.pickweight > 0);
+            
+            if (isPickup) {
+                currentLoad += task.pickweight;
+                maxProcessLoad = std::max(maxProcessLoad, currentLoad);
+            } else {
+
+            }
+            
+            // 记录到达时间
+            times.push_back(currentTime);
+        } else {
+            // 无法找到下一个任务点，需要返回某个点
+            int bestReturnPoint = drone.centerId;
+            double minReturnTime = std::numeric_limits<double>::max(); // 最早可以完成返回的时间
+            
+            // 首先检查是否能返回原配送中心
+            double distanceToCenter = getDistance(currentPos, drone.centerId, problem, true);
+            double batteryNeeded = distanceToCenter / drone.speed;
+            double returnTime = currentTime + distanceToCenter / drone.speed;
+            
+            if (batteryNeeded <= currentBattery) {
+                minReturnTime = returnTime;
+                bestReturnPoint = drone.centerId;
+            }
+            
+            // 寻找可到达的车辆经过点
+            for (const auto& [visitTaskId, info] : taskVisitInfo) {
+                double distance = getDistance(currentPos, visitTaskId, problem, true);
+                double batteryNeeded = distance / drone.speed;
+                double droneArrivalTime = currentTime + distance / drone.speed;
+                double vehicleArrivalTime = info.second;
+                
+                // 计算实际可完成返回的时间（需要等待车辆到达）
+                double actualReturnTime = std::max(droneArrivalTime, vehicleArrivalTime);
+                
+                // 如果无人机能到达该点，且能在车辆到达前抵达，且最终返回时间更早
+                if (batteryNeeded <= currentBattery && 
+                    droneArrivalTime < vehicleArrivalTime && 
+                    actualReturnTime < minReturnTime) {
+                    minReturnTime = actualReturnTime;
+                    bestReturnPoint = visitTaskId;
+                }
+            }
+            
+            // 如果找到可返回的点
+            if (minReturnTime < std::numeric_limits<double>::max()) {
+                path.push_back(bestReturnPoint);
+                
+                // 计算返回时间
+                double distance = getDistance(currentPos, bestReturnPoint, problem, true);
+                double flyingTime = distance / drone.speed;
+                currentBattery -= flyingTime;
+                
+                // 更新当前位置
+                currentPos = bestReturnPoint;
+                
+                // 如果是车辆访问的任务点，需要等待车辆到达
+                if (bestReturnPoint != drone.centerId && taskVisitInfo.count(bestReturnPoint) > 0) {
+                    double vehicleArrivalTime = taskVisitInfo.at(bestReturnPoint).second;
+                    // 更新到达时间（考虑等待车辆）
+                    currentTime = std::max(currentTime + flyingTime, vehicleArrivalTime);
+                } else {
+                    // 直接返回配送中心，不需要等待
+                    currentTime += flyingTime;
+                }
+                
+                // 在返回点充电和卸货
+                currentBattery = drone.maxfuel;
+                currentLoad = 0.0;
+                maxProcessLoad = 0.0;
+                
+                // 记录到达时间
+                times.push_back(currentTime);
+            } else {
+                // 无法找到返回点，规划失败
+                return {{drone.centerId, drone.centerId}, {0.0, 0.0}};
+            }
+        }
+    }
+    
+    // 如果最后不在配送中心，选择返回某个点
+    if (currentPos != drone.centerId) {
+        int bestReturnPoint = drone.centerId;
+        double minReturnTime = std::numeric_limits<double>::max(); // 最早可以完成返回的时间
+        
+        // 首先检查是否能返回原配送中心
+        double distanceToCenter = getDistance(currentPos, drone.centerId, problem, true);
+        double batteryNeeded = distanceToCenter / drone.speed;
+        double returnTime = currentTime + distanceToCenter / drone.speed;
+        
+        if (batteryNeeded <= currentBattery) {
+            minReturnTime = returnTime;
+            bestReturnPoint = drone.centerId;
+        }
+        
+        // 寻找可到达的车辆经过点
+        for (const auto& [visitTaskId, info] : taskVisitInfo) {
+            double distance = getDistance(currentPos, visitTaskId, problem, true);
+            double batteryNeeded = distance / drone.speed;
+            double droneArrivalTime = currentTime + distance / drone.speed;
+            double vehicleArrivalTime = info.second;
+            
+            // 计算实际可完成返回的时间（需要等待车辆到达）
+            double actualReturnTime = std::max(droneArrivalTime, vehicleArrivalTime);
+            
+            // 如果无人机能到达该点，且能在车辆到达前抵达，且最终返回时间更早
+            if (batteryNeeded <= currentBattery && 
+                droneArrivalTime < vehicleArrivalTime && 
+                actualReturnTime < minReturnTime) {
+                minReturnTime = actualReturnTime;
+                bestReturnPoint = visitTaskId;
+            }
+        }
+        
+        // 如果找到可返回的点
+        if (minReturnTime < std::numeric_limits<double>::max()) {
+            path.push_back(bestReturnPoint);
+            
+            // 计算返回时间
+            double distance = getDistance(currentPos, bestReturnPoint, problem, true);
+            double flyingTime = distance / drone.speed;
+            currentBattery -= flyingTime;
+            
+            // 更新当前位置
+            currentPos = bestReturnPoint;
+            
+            // 如果是车辆访问的任务点，需要等待车辆到达
+            if (bestReturnPoint != drone.centerId && taskVisitInfo.count(bestReturnPoint) > 0) {
+                double vehicleArrivalTime = taskVisitInfo.at(bestReturnPoint).second;
+                // 更新到达时间（考虑等待车辆）
+                currentTime = std::max(currentTime + flyingTime, vehicleArrivalTime);
+            } else {
+                // 直接返回配送中心，不需要等待
+                currentTime += flyingTime;
+            }
+            
+            // 在返回点充电和卸货
+            currentBattery = drone.maxfuel;
+            currentLoad = 0.0;
+            maxProcessLoad = 0.0;
+            
+            // 记录到达时间
+            times.push_back(currentTime);
+        } else {
+            // 无法找到返回点，规划失败
+            return {{drone.centerId, drone.centerId}, {0.0, 0.0}};
+        }
+    }
+    
+    return {path, times};
 }
