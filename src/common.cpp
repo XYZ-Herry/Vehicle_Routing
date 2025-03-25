@@ -320,8 +320,7 @@ void printInitialInfo(const DeliveryProblem& problem) {
     cout << endl;
 }
 
-// 修改printDeliveryResults函数
-void printDeliveryResults(
+void Print_Dynamic_DeliveryResults(
     const DeliveryProblem& problem,
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& allPaths)
 {
@@ -344,10 +343,14 @@ void printDeliveryResults(
         for (size_t i = 0; i < path.size(); ++i) {
             int pointId = path[i];
             
-            // 区分配送中心和任务点
+            // 区分配送中心和任务点还有车机协同的车辆任务点
             if (problem.centerIds.count(pointId) > 0) {
                 cout << "中心#" << pointId;
-            } else {
+            }
+            else if (pointId > 30000){
+                cout << "协同点#" << pointId;
+            }
+            else{
                 cout << "任务#" << pointId;
                 totalTaskCount++;
             }

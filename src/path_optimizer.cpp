@@ -13,7 +13,7 @@ using std::numeric_limits;
 using std::unordered_map;
 using std::pair;
 
-// 使用最近邻法优化车辆的配送路径
+// 使用最近邻法优化静态阶段的配送路径
 vector<int> optimizePathForVehicle(
     const vector<int> &assignedTaskIds,  // 任务ID列表
     const vector<TaskPoint> &tasks, 
@@ -96,6 +96,7 @@ vector<int> optimizePathForVehicle(
             int nextIndex = -1;
             int nextId = -1;
             
+            
             // 寻找满足约束的最近任务点
             for (size_t i = 0; i < assignedTaskIds.size(); i++) {
                 if (!visited[i]) {
@@ -170,6 +171,7 @@ vector<int> optimizePathForVehicle(
                     maxProcessLoad = std::max(maxProcessLoad, currentLoad);
                 } else {
                 }
+                
             } else {
                 // 如果没有找到可行的下一个任务点，返回配送中心
                 double distanceToCenter = getDistance(currentPos, centerId, problem, true);
@@ -315,17 +317,12 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
         
         // 检查是否有分配的任务
         if (vehicleIdToTaskIds.count(vehicleId) && !vehicleIdToTaskIds[vehicleId].empty()) {
-            // 规划路径
-            std::vector<int> path = optimizePathForVehicle(
+            // 使用新函数规划路径
+            auto [path, times] = Dynamic_OptimizePathForVehicle(
                 vehicleIdToTaskIds[vehicleId],
                 problem.tasks,
                 vehicle,
                 problem
-            );
-            
-            // 计算时间 - 车辆需要考虑交通
-            std::vector<double> times = calculateCompletionTimes(
-                path, problem.tasks, vehicle, problem, true
             );
             
             // 保存路径和时间
@@ -393,6 +390,136 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
     return dynamicPaths;
 }
 
+// 动态阶段为车辆优化考虑时间约束的路径
+std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
+    const std::vector<int> &assignedTaskIds,
+    const std::vector<TaskPoint> &tasks,
+    const Vehicle &vehicle,
+    const DeliveryProblem& problem)
+{
+    if (assignedTaskIds.empty()) {
+        return {{vehicle.centerId, vehicle.centerId}, {0.0, 0.0}};
+    }
+    
+    std::vector<int> path;
+    std::vector<double> times;
+    std::vector<bool> visited(assignedTaskIds.size(), false);
+    
+    // 从配送中心开始
+    int centerId = vehicle.centerId;
+    path.push_back(centerId);
+    times.push_back(0.0); // 初始时间
+    
+    int currentPos = centerId;
+    double currentTime = 0.0;
+    
+    // 根据距离选择下一个访问点，直到所有点都被访问
+    while (anyTaskUnvisited(visited, assignedTaskIds)) {
+        // 检查是否只剩下额外需求点未访问
+        bool onlyExtraDemandLeft = true;
+        double earliestArrivalTime = std::numeric_limits<double>::max();
+        int earliestExtraDemandId = -1;
+        int earliestExtraDemandIndex = -1;
+        
+        // 查找最早可访问的额外需求点
+        for (size_t i = 0; i < assignedTaskIds.size(); i++) {
+            if (visited[i]) continue;
+            
+            int taskId = assignedTaskIds[i];
+            int taskIndex = problem.taskIdToIndex.at(taskId);
+            const TaskPoint& task = tasks[taskIndex];
+            
+            if (taskIndex < problem.initialDemandCount) {
+                onlyExtraDemandLeft = false;
+            } else if (task.arrivaltime < earliestArrivalTime) {
+                earliestArrivalTime = task.arrivaltime;
+                earliestExtraDemandId = taskId;
+                earliestExtraDemandIndex = i;
+            }
+        }
+        
+        // 如果只剩额外需求点，则等待
+        if (onlyExtraDemandLeft && earliestExtraDemandId != -1) {
+            // 计算从当前位置到最早额外需求点的时间（考虑高峰期）
+            double distToEarliestDemand = getDistance(currentPos, earliestExtraDemandId, problem, false);
+            double speedFactor = getSpeedFactor(currentTime, currentPos, earliestExtraDemandId, problem);
+            double timeToEarliestDemand = distToEarliestDemand / (vehicle.speed * speedFactor);
+            
+            // 如果当前时间加上行驶时间小于额外需求点的到达时间，则等待
+            if (currentTime + timeToEarliestDemand < earliestArrivalTime) {
+                //currentTime = earliestArrivalTime - timeToEarliestDemand;
+                currentTime = earliestArrivalTime;
+                path.push_back(earliestExtraDemandId);
+                times.push_back(currentTime);
+                currentPos = earliestExtraDemandId;
+                visited[earliestExtraDemandIndex] = true;
+            }
+        }
+        
+        double minDistance = std::numeric_limits<double>::max();
+        int nextIndex = -1;
+        int nextId = -1;
+        
+        // 寻找满足约束的下一个任务点
+        for (size_t i = 0; i < assignedTaskIds.size(); i++) {
+            if (!visited[i]) {
+                int taskId = assignedTaskIds[i];
+                int taskIndex = problem.taskIdToIndex.at(taskId);
+                const TaskPoint& task = tasks[taskIndex];
+                
+                double distance = getDistance(currentPos, taskId, problem, false);
+                
+                // 考虑高峰期对速度的影响
+                double speedFactor = getSpeedFactor(currentTime, currentPos, taskId, problem);
+                double timeToTask = distance / (vehicle.speed * speedFactor);
+                
+                // 添加额外需求点到达时间约束
+                if (taskIndex >= problem.initialDemandCount && 
+                    currentTime + timeToTask < task.arrivaltime) {
+                    continue; // 额外需求点尚未到达，不能访问
+                }
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nextIndex = i;
+                    nextId = taskId;
+                }
+            }
+        }
+        
+        if (nextIndex != -1) {
+            // 更新路径和状态
+            visited[nextIndex] = true;
+            path.push_back(nextId);
+            
+            // 考虑高峰期影响，计算实际行驶时间
+            double speedFactor = getSpeedFactor(currentTime, currentPos, nextId, problem);
+            double timeNeeded = minDistance / (vehicle.speed * speedFactor);
+            
+            // 更新当前时间和位置
+            currentTime += timeNeeded;
+            currentPos = nextId;
+            
+            // 记录到达时间
+            times.push_back(currentTime);
+        }
+    }
+    
+    // 返回配送中心
+    if (currentPos != centerId) {
+        path.push_back(centerId);
+        
+        double distance = getDistance(currentPos, centerId, problem, false);
+        double speedFactor = getSpeedFactor(currentTime, currentPos, centerId, problem);
+        double timeNeeded = distance / (vehicle.speed * speedFactor);
+        
+        currentTime += timeNeeded;
+        times.push_back(currentTime);
+    }
+    
+    return {path, times};
+}
+
 // 考虑车辆协同的无人机路径规划
 std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
     const std::vector<int>& taskIds,
@@ -417,7 +544,60 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
     double maxProcessLoad = 0.0;
     double currentTime = 0.0;
     
+    // 当还有未访问的任务点时继续循环
     while (anyTaskUnvisited(visited, taskIds)) {
+        // 检查是否只剩下额外需求点未访问
+        bool onlyExtraDemandLeft = true;
+        double earliestArrivalTime = std::numeric_limits<double>::max();
+        int earliestExtraDemandId = -1;
+        int earliestExtraDemandIndex = -1;
+        // 查找最早可访问的额外需求点
+        for (size_t i = 0; i < taskIds.size(); i++) {
+            if (visited[i]) continue;
+            
+            int taskId = taskIds[i];
+            int taskIndex = problem.taskIdToIndex.at(taskId);
+            const TaskPoint& task = tasks[taskIndex];
+            
+            // 如果不是额外需求点，标记不仅有额外需求点
+            if (taskIndex < problem.initialDemandCount) {
+                onlyExtraDemandLeft = false;
+            } 
+            // 记录最早的额外需求点到达时间
+            else if (taskIndex >= problem.initialDemandCount) {
+                if (task.arrivaltime < earliestArrivalTime) {
+                    earliestArrivalTime = task.arrivaltime;
+                    earliestExtraDemandId = taskId;
+                    earliestExtraDemandIndex = i;
+                }
+            }
+        }
+        
+        // 如果只剩额外需求点，则等待
+        if (onlyExtraDemandLeft && earliestExtraDemandId != -1) {
+            // 计算从配送中心到最早额外需求点的时间
+            double distToEarliestDemand = getDistance(currentPos, earliestExtraDemandId, problem, true);
+            double timeToEarliestDemand = distToEarliestDemand / drone.speed;
+            
+            //如果当前时间还未到达最早额外需求点的到达时间
+            if (currentTime + timeToEarliestDemand < earliestArrivalTime) {
+                // 在配送中心等待，直到可以前往最早额外需求点
+                // double waitUntil = earliestArrivalTime - timeToEarliestDemand;
+                // currentTime = waitUntil;
+                currentTime = earliestArrivalTime;
+                currentPos = earliestExtraDemandId;
+                path.push_back(currentPos);
+                times.push_back(currentTime);
+                visited[earliestExtraDemandIndex] = true;
+            }
+            // if (currentTime + timeToEarliestDemand < earliestArrivalTime) {
+            //     // 在配送中心等待，直到可以前往最早额外需求点
+            //      double waitUntil = earliestArrivalTime - timeToEarliestDemand;
+            //      currentTime = waitUntil;
+
+            // }
+        }
+        
         double minDistance = std::numeric_limits<double>::max();
         int nextIndex = -1;
         int nextId = -1;
@@ -441,6 +621,12 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
             // 计算到任务点的距离和电量需求
             double distanceToTask = getDistance(currentPos, taskId, problem, true);
             double batteryNeededToTask = distanceToTask / drone.speed;
+            
+            
+            // 添加额外需求点到达时间约束
+            if (taskIndex >= problem.initialDemandCount && currentTime + batteryNeededToTask < task.arrivaltime) {
+                continue; // 额外需求点尚未到达，不能访问
+            }
             
             // 检查电量是否足够到达任务点
             if (batteryNeededToTask > currentBattery) continue;
@@ -555,7 +741,8 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
             
             // 如果找到可返回的点
             if (minReturnTime < std::numeric_limits<double>::max()) {
-                path.push_back(bestReturnPoint);
+                if (bestReturnPoint != drone.centerId) path.push_back(bestReturnPoint + 30000);//协同点
+                else path.push_back(bestReturnPoint);
                 
                 // 计算返回时间
                 double distance = getDistance(currentPos, bestReturnPoint, problem, true);

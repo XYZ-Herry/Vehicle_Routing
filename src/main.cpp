@@ -55,7 +55,7 @@ int main(int argc, char* argv[])
     }
     
     // 输出静态阶段结果
-    printDeliveryResults(problem, staticPaths);
+    Print_Dynamic_DeliveryResults(problem, staticPaths);
     
     // 求解动态阶段问题
     cout << "\n========== 动态阶段求解 ==========" << endl;
@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
     auto dynamicPaths = solveDynamicProblem(problem, staticPaths, staticMaxTime);
     
     // 输出动态阶段配送结果详情 - 使用新的结构化输出
-    printDeliveryResults(problem, dynamicPaths);
+    Print_Dynamic_DeliveryResults(problem, dynamicPaths);
     
     return 0;
 }

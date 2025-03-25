@@ -18,7 +18,7 @@ using std::endl;
 using std::max;
 
 // 优化所有车辆的路径 - 修改为返回<车辆ID, <路径, 时间>>的形式
-std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimizeAllPaths(
+std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> static_optimizeAllPaths(
     const DeliveryProblem& problem,
     const std::vector<std::pair<int, int>>& vehicleTaskAssignments)  // (车辆ID, 任务ID)对
 {
@@ -118,7 +118,7 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> solveS
         problem.timeWeight
     );
     
-    auto allPaths = optimizeAllPaths(problem, vehicleTaskAssignments);
+    auto allPaths = static_optimizeAllPaths(problem, vehicleTaskAssignments);
     
     return allPaths;
 }

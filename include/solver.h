@@ -7,7 +7,7 @@
 #include <unordered_map>
 
 // 优化所有车辆的路径 - 修改返回类型为<车辆ID, <路径, 时间>>
-std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimizeAllPaths(
+std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> static_optimizeAllPaths(
     const DeliveryProblem& problem,
     const std::vector<std::pair<int, int>>& vehicleTaskAssignments);
 

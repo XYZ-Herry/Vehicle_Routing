@@ -30,6 +30,13 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
     const DeliveryProblem& problem,
     const std::vector<std::pair<int, int>>& dynamicAssignments);
 
+// 动态阶段为车辆优化考虑时间约束的路径
+std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
+    const std::vector<int> &assignedTaskIds,
+    const std::vector<TaskPoint> &tasks,
+    const Vehicle &vehicle,
+    const DeliveryProblem& problem);
+
 // 考虑车辆协同的无人机路径规划 - 修改返回类型
 std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
     const std::vector<int>& taskIds,

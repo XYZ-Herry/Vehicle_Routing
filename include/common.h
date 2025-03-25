@@ -155,7 +155,7 @@ inline bool isVehicleCenter(const DistributionCenter& center) {
 }
 
 // 输出配送结果
-void printDeliveryResults(
+void Print_Dynamic_DeliveryResults(
     const DeliveryProblem& problem,
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& allPaths);
 
