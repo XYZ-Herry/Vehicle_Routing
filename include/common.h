@@ -33,7 +33,7 @@ struct TaskPoint
 {
     int id;                     // 任务点ID
     double x, y;                // 坐标（公里）
-    double time;                // 出现时间（小时）
+    double arrivaltime;                // 出现时间（小时）
     int centerId;               // 所属配送中心ID
     double pickweight;          // 取货重量（千克）
     double sendWeight;          // 送货重量（千克）

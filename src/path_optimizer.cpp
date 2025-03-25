@@ -119,6 +119,12 @@ vector<int> optimizePathForVehicle(
                         continue; // 电量不足，跳过该任务点
                     }
                     
+                    // 添加10%最低电量约束 - 确保离开任务点后仍有至少10%的续航能力
+                    double minRequiredBattery = vehicle.maxfuel * 0.1; // 10%的最大电量
+                    if ((currentBattery - batteryNeededToTask) < minRequiredBattery) {
+                        continue; // 剩余电量不足10%，跳过该任务点
+                    }
+                    
                     // 检查载重约束
                     bool isPickup = (task.pickweight > 0);
                     
@@ -445,6 +451,13 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
             // 首先检查是否可以返回原配送中心
             double distanceToOriginalCenter = getDistance(taskId, drone.centerId, problem, true);
             double batteryToOriginalCenter = distanceToOriginalCenter / drone.speed;
+            
+            // 添加10%最低电量约束 - 确保离开任务点后仍有至少10%的续航能力
+            double minRequiredBattery = drone.maxfuel * 0.1; // 10%的最大电量
+            double remainingBatteryAfterTask = currentBattery - batteryNeededToTask;
+            
+            // 如果剩余电量低于10%的门槛，跳过这个任务点
+            if (remainingBatteryAfterTask < minRequiredBattery) continue;
             
             if (batteryNeededToTask + batteryToOriginalCenter <= currentBattery) {
                 canReturn = true;

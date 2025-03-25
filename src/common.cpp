@@ -162,15 +162,16 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         for (int i = 0; i < extraDemandCount; ++i)
         {
             int id;
-            double latitude, longitude, time;
-            file >> id >> longitude >> latitude >> time;
+            double latitude, longitude, arrivaltime;
+            file >> id >> longitude >> latitude >> arrivaltime;
+            arrivaltime = arrivaltime / 60.0;
             auto [x, y] = convertLatLongToXY(latitude, longitude);
             
             // 给额外需求点添加偏移量确保ID唯一
             int uniqueId = id + 10000;  // 假设原始ID不会超过10000
             
             problem.tasks[initialDemandCount + i] = {
-                uniqueId, x, y, time,
+                uniqueId, x, y, arrivaltime,
                 DeliveryProblem::DEFAULT_CENTER_ID,
                 DeliveryProblem::DEFAULT_PICKUP_WEIGHT,
                 DeliveryProblem::DEFAULT_DELIVERY_WEIGHT
@@ -314,7 +315,7 @@ void printInitialInfo(const DeliveryProblem& problem) {
     cout << "额外需求点ID：";
     for (size_t i = problem.initialDemandCount; i < problem.tasks.size(); ++i) {
         if (i > problem.initialDemandCount) cout << ", ";
-        cout << problem.tasks[i].id << " (time: " << problem.tasks[i].time << "h)";
+        cout << problem.tasks[i].id << " (time: " << problem.tasks[i].arrivaltime << "h)";
     }
     cout << endl;
 }
