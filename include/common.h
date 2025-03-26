@@ -131,11 +131,6 @@ struct DeliveryProblem
     std::unordered_map<int, int> taskIdToIndex;      // 任务ID到索引的映射
     std::unordered_map<int, int> vehicleIdToIndex;   // 车辆ID到索引的映射
     
-    // 索引到ID的反向映射（如果需要）
-    std::unordered_map<int, int> indexToTaskId;      // 索引到任务ID的映射
-    std::unordered_map<int, int> indexToVehicleId;   // 索引到车辆ID的映射
-    std::unordered_map<int, int> indexToCenterId;    // 索引到中心ID的映射
-    
     // 所有配送中心ID的集合
     std::unordered_set<int> centerIds;
 };

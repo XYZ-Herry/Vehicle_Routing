@@ -19,7 +19,7 @@ using std::cout;
 using std::endl;
 
 // 计算解的适应度
-// solution: 车辆ID的数组，表示每个任务分配给哪个车辆
+// solution: 车辆ID的数组，表示每个任务分配给哪个车辆， solution[i]的i表示centerTaskIds的下标
 // centerTaskIds: 任务ID的数组，表示当前配送中心负责的所有任务ID
 double calculateFitness(
     const vector<int>& solution,        // 存储车辆ID
@@ -102,6 +102,7 @@ vector<pair<int, int>> Static_GeneticAlgorithm(
         // 直接从problem.centerToTasks获取该中心负责的任务ID
         auto tasksIt = problem.centerToTasks.find(center.id);
         if (tasksIt == problem.centerToTasks.end() || tasksIt->second.empty()) {
+            cout << "警告: 配送中心 #" << center.id << " 没有任务，跳过处理" << endl;
             continue;  // 跳过没有任务的中心
         }
         
@@ -110,7 +111,10 @@ vector<pair<int, int>> Static_GeneticAlgorithm(
         // 获取中心的车辆ID列表（已经存储在center.vehicles中）
         vector<int> centerVehicleIds = center.vehicles;
 
-        if (centerTaskIds.empty() || centerVehicleIds.empty()) continue;
+        if (centerVehicleIds.empty()) {
+            cout << "警告: 配送中心 #" << center.id << " 没有车辆，跳过处理" << endl;
+            continue;
+        }
 
         // 初始化种群
         vector<vector<int>> population;

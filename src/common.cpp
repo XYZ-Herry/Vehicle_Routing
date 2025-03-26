@@ -100,7 +100,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             int vehicleCount;
             
             file >> id >> longitude >> latitude >> vehicleCount;
-            id += 20000;
+            id += 20000;//配送中心ID从20000开始
             auto [x, y] = convertLatLongToXY(latitude, longitude);
             
             problem.centers[i] = {id, x, y, vehicleCount, 0};
@@ -164,7 +164,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             int id;
             double latitude, longitude, arrivaltime;
             file >> id >> longitude >> latitude >> arrivaltime;
-            arrivaltime = arrivaltime / 60.0;
+            arrivaltime = arrivaltime / 60.0;//将分钟转换为小时
             auto [x, y] = convertLatLongToXY(latitude, longitude);
             
             // 给额外需求点添加偏移量确保ID唯一
@@ -263,14 +263,15 @@ double getDistance(int id1, int id2, const DeliveryProblem& problem, bool isDron
         return 0.0;
     }
     
-    // 获取两点坐标
-    const auto& [x1, y1] = problem.coordinates.at(id1);
-    const auto& [x2, y2] = problem.coordinates.at(id2);
     
-    // 计算欧几里得距离
-    double euclideanDist = sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
     
     if (isDrone) {
+        // 获取两点坐标
+        const auto& [x1, y1] = problem.coordinates.at(id1);
+        const auto& [x2, y2] = problem.coordinates.at(id2);
+        
+        // 计算欧几里得距离
+        double euclideanDist = sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
         return euclideanDist;
     } else {
         // 车辆优先使用路网最短距离

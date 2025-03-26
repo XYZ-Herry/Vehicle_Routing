@@ -95,8 +95,6 @@ vector<int> optimizePathForVehicle(
             double minDistance = std::numeric_limits<double>::max();
             int nextIndex = -1;
             int nextId = -1;
-            
-            
             // 寻找满足约束的最近任务点
             for (size_t i = 0; i < assignedTaskIds.size(); i++) {
                 if (!visited[i]) {
@@ -331,8 +329,8 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
             // 记录任务点访问信息
             for (size_t i = 0; i < path.size(); ++i) {
                 int pointId = path[i];
-                if (problem.centerIds.count(pointId) == 0) {
-                    taskVisitInfo[pointId] = {vehicleId, times[i]};
+                if (problem.centerIds.count(pointId) == 0) {//不是配送中心
+                    taskVisitInfo[pointId] = {vehicleId, times[i]};//记录任务点{车辆ID, 到达时间}
                 }
             }
         } else {
@@ -390,7 +388,7 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
     return dynamicPaths;
 }
 
-// 动态阶段为车辆优化考虑时间约束的路径
+// 动态阶段为车辆优化路径，返回路径和时间
 std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
     const std::vector<int> &assignedTaskIds,
     const std::vector<TaskPoint> &tasks,
@@ -419,7 +417,7 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
         bool onlyExtraDemandLeft = true;
         double earliestArrivalTime = std::numeric_limits<double>::max();
         int earliestExtraDemandId = -1;
-        int earliestExtraDemandIndex = -1;
+        int earliestExtraDemandIndex = -1;//最早额外需求点在assignedTaskIds中的下标，用于visited数组
         
         // 查找最早可访问的额外需求点
         for (size_t i = 0; i < assignedTaskIds.size(); i++) {
@@ -447,11 +445,10 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
             
             // 如果当前时间加上行驶时间小于额外需求点的到达时间，则等待
             if (currentTime + timeToEarliestDemand < earliestArrivalTime) {
-                //currentTime = earliestArrivalTime - timeToEarliestDemand;
                 currentTime = earliestArrivalTime;
-                path.push_back(earliestExtraDemandId);
-                times.push_back(currentTime);
                 currentPos = earliestExtraDemandId;
+                path.push_back(currentPos);
+                times.push_back(currentTime);
                 visited[earliestExtraDemandIndex] = true;
             }
         }
