@@ -159,7 +159,6 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> solveD
         cout << "没有需要重新调度的任务，直接使用静态解决方案" << endl;
         return staticPaths;
     }
-    
     // 使用改进的动态遗传算法分配任务
     vector<pair<int, int>> assignments = dynamicGeneticAlgorithm(
         problem, staticPaths, delayedTasks, newTasks,

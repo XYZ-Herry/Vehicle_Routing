@@ -1,6 +1,6 @@
 build/
 *.o
 *.exe
-test/result.txt
+test/*
 edit.txt
 route_map.png

@@ -63,8 +63,8 @@ all_edges_df[['节点1', '节点2']] = pd.DataFrame(all_edges_df['sorted_nodes']
 # 用户输入部分
 default_require_num = int(input("请输入默认需求数量 (小于143): "))
 additional_demand_num = int(input("请输入额外需求数量 (小于143): "))
-car_num = int(input("请输入车辆数量: "))
-UAV_num = int(input("请输入无人机数量: "))
+car_num = int(input("请输入车辆配送中心数量: "))
+UAV_num = int(input("请输入无人机配送中心数量: "))
 
 # 获取需求节点
 require_nodes = require_df[['序号', 'X', 'Y坐标', '需求量']]

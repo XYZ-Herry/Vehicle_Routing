@@ -381,6 +381,7 @@ void Print_DeliveryResults(
     auto [totalTime, totalCost] = calculateTotalTimeAndCost(problem, allPaths);
     cout << "所有任务的最晚完成时间: " << totalTime << " 小时" << endl;
     cout << "总成本: " << totalCost << " 元" << endl;
+    //cout << "目标值：" << timeWeight * totalTime + (1.0 - timeWeight) * totalCost << endl;
 }
 
 // 输出配送中心的车辆分配和任务分配情况

@@ -7,6 +7,7 @@
 #include <random>
 #include <limits>
 #include <iostream>
+#include <chrono>
 
 using std::vector;
 using std::pair;
@@ -25,6 +26,14 @@ double calculateDynamicFitness(
     double timeWeight,
     double staticMaxTime)
 {
+    static int callCount = 0;
+    callCount++;
+
+    // 每1000次调用输出一次状态
+    if (callCount % 1000 == 0) {
+        std::cout << "适应度计算次数: " << callCount << std::endl;
+    }
+
     // 使用映射检查车辆ID有效性
     for (size_t i = 0; i < allTaskIds.size(); ++i) {
         int vehicleId = solution[i];
@@ -35,7 +44,6 @@ double calculateDynamicFitness(
     
     // 转换为optimizeDynamicPaths所需的格式：vehicle-task对列表
     vector<pair<int, int>> assignments;
-    //cout << "1231231231231312222222222222222222 " << allTaskIds.size() << endl;
     for (size_t i = 0; i < allTaskIds.size(); ++i) {
         int vehicleId = solution[i];
         int taskId = allTaskIds[i];
@@ -61,6 +69,7 @@ double calculateDynamicFitness(
         int realTaskCount = 0;
         for (size_t i = 1; i < path.size() - 1; i++) {  // 跳过首尾配送中心
             int pointId = path[i];
+            if (pointId > 30000) continue;
             if (problem.centerIds.count(pointId) == 0) {  // 确认是任务点
                 realTaskCount++;
                 
@@ -80,8 +89,6 @@ double calculateDynamicFitness(
         // 计算完成时间和成本
         if (completionTimes.size() >= 2) {
             maxCompletionTime = std::max(maxCompletionTime, completionTimes[completionTimes.size()-2]);
-        // if (!completionTimes.empty()) {
-        //     maxCompletionTime = std::max(maxCompletionTime, completionTimes.back());
             
             // 查找车辆索引以获取成本
             int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
@@ -99,8 +106,8 @@ double calculateDynamicFitness(
                               (maxInitialTaskCompletionTime - staticMaxTime) * DeliveryProblem::DEFAULT_DELAY_PENALTY : 0.0;
     
     // 计算加权适应度值
-    return timeWeight * (maxCompletionTime + dynamicTimePenalty) + 
-           (1.0 - timeWeight) * totalCost;
+    return timeWeight * maxCompletionTime  + 
+           (1.0 - timeWeight) * totalCost + dynamicTimePenalty;
 }
 
 // 改进的动态遗传算法，所有任务参与遗传
@@ -134,7 +141,6 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
     for (const auto& task : problem.tasks) {
         allTaskIds.push_back(task.id);
     }
-
     // 从静态路径中提取任务和分配信息
     for (const auto& [vehicleId, pathPair] : staticPaths) {
         const auto& path = pathPair.first;
@@ -169,6 +175,13 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
     // 尝试生成初始种群
     while (population.size() < populationSize && attempts < maxAttempts) {
         attempts++;
+        
+        // 每100次尝试输出进度
+        if (attempts % 100 == 0) {
+            std::cout << "正在生成初始种群，当前尝试: " << attempts 
+                      << ", 成功: " << population.size() << "/" << populationSize << std::endl;
+        }
+        
         vector<int> solution(allTaskIds.size());  // 存储车辆ID
         
         // 为每个任务分配车辆
