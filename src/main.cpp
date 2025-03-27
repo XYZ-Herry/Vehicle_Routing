@@ -57,13 +57,6 @@ int main(int argc, char* argv[])
     // 输出静态阶段结果
     Print_DeliveryResults(problem, staticPaths);
     
-    // 求解动态阶段问题
-    cout << "\n========== 动态阶段求解 ==========" << endl;
-    
-    // 在输出动态阶段结果前添加任务数量统计
-    int totalDynamicTasks = problem.tasks.size();
-    cout << "动态优化任务数: " << totalDynamicTasks << endl;
-    
     auto dynamicPaths = solveDynamicProblem(problem, staticPaths, staticMaxTime);
     
     // 输出动态阶段配送结果详情 - 使用新的结构化输出

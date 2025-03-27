@@ -1,8 +1,20 @@
 #!/bin/bash
 
-# 设置输入文件路径
-INPUT_FILE="../test/1.txt"
-OUTPUT_FILE="../test/result.txt"
+# 检查是否提供了输入文件参数
+if [ $# -ge 1 ]; then
+    # 使用第一个命令行参数作为输入文件
+    INPUT_FILE="$1"
+else
+    # 否则使用默认输入文件
+    INPUT_FILE="../test/2.txt"
+fi
+
+# 根据输入文件名生成输出文件名
+FILENAME=$(basename "$INPUT_FILE")
+OUTPUT_FILE="../test/result_${FILENAME}"
+
+echo "使用输入文件: $INPUT_FILE"
+echo "输出将保存到: $OUTPUT_FILE"
 
 # 创建并进入构建目录
 mkdir -p build

@@ -4,3 +4,4 @@ build/
 test/*
 edit.txt
 route_map.png
+.vscode

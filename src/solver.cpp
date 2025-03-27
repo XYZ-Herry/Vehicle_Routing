@@ -154,6 +154,13 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> solveD
         }
         cout << endl;
     }
+    // 求解动态阶段问题
+    cout << "\n========== 动态阶段求解 ==========" << endl;
+    
+    // 在输出动态阶段结果前添加任务数量统计
+    int totalDynamicTasks = problem.tasks.size();
+    cout << "动态优化任务数: " << totalDynamicTasks << endl;
+
     
     if (delayedTasks.empty() && newTasks.empty()) {
         cout << "没有需要重新调度的任务，直接使用静态解决方案" << endl;
