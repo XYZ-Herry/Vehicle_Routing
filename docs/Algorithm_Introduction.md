@@ -1,6 +1,6 @@
 
 
-# 车辆路径规划系统算法介绍
+# 路径规划系统算法介绍
 
 ## 1. 系统概述
 
@@ -11,13 +11,13 @@
 整个系统算法流程如下：
 
 ````
-算法：配送路径规划系统主流程
+算法：路径规划系统主流程
 输入：配送中心、车辆信息、任务点信息
 输出：优化后的配送路径和时间
 
 1. 数据预处理：读入并处理所有数据（common.cpp）
 2. 任务初始分配：每个任务点分配到距离最近的配送中心（assignTasksToCenters函数）
-3. 静态阶段遗传算法：按配送中心分别进行遗传算法，为各中心的车辆分配任务点（static_genetic.cpp）
+3. 静态阶段遗传算法：按配送中心分别进行遗传算法，为各中心的各车辆/无人机分配任务点（static_genetic.cpp）
 4. 静态阶段路径优化：优化各车辆/无人机的路径并计算完成时间（optimizePathForVehicle函数）
 5. 计算静态阶段最晚完成时间T（main.cpp里面）
 6. 动态阶段任务识别：收集超过时间T的延迟任务和新增任务（solver.cpp里面的identifyTasksForRescheduling函数）
@@ -26,7 +26,7 @@
 9. 返回并输出最终优化的路径和时间表（main.cpp里的Print_DeliveryResults函数）
 ````
 
-## 3. 任务分配算法
+## 3. 初始任务分配算法
 
 初始任务分配将每个任务点分配给距离最近的配送中心，确定任务点的管辖范围。
 
@@ -39,7 +39,7 @@
    a. minDistance ← ∞
    b. nearestCenter ← -1
    c. 对每个配送中心 center in centers 执行:
-      i. distance ← 计算任务点task到配送中心center的距离
+      i. distance ← 计算任务点task到配送中心center的实际距离
       ii. 如果 distance < minDistance 则:
           minDistance ← distance
           nearestCenter ← center.id

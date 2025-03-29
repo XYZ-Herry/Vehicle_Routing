@@ -67,11 +67,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         // 初始化任务点容器
         problem.tasks.resize(initialDemandCount + extraDemandCount);
 
-        cout << "\n============= 坐标信息 =============" << endl;
-        cout << std::fixed << std::setprecision(3);  // 设置输出精度
-
         // 读取初始需求点
-        cout << "\n初始需求点坐标:" << endl;
         for (int i = 0; i < initialDemandCount; ++i)
         {
             int id;
@@ -85,11 +81,8 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
                 DeliveryProblem::DEFAULT_DELIVERY_WEIGHT
             };
             problem.coordinates[id] = {x, y};  // 存储坐标映射
-            cout << "任务点 " << id << ": (" << x << " km, " << y << " km)" << endl;
         }
 
-        // 读取车辆配送中心
-        cout << "\n车辆配送中心坐标:" << endl;
         problem.centers.resize(vehicleCenterCount + droneCenterCount);
         int vehicleIdCounter = 1;  // 从1开始
         
@@ -105,8 +98,6 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             
             problem.centers[i] = {id, x, y, vehicleCount, 0};
             problem.coordinates[id] = {x, y};  // 存储坐标映射
-            cout << "配送中心 " << id << ": (" << x << " km, " << y << " km), " 
-                 << vehicleCount << " 辆车" << endl;
             
             // 创建车辆
             for (int j = 0; j < vehicleCount; ++j)
@@ -125,7 +116,6 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         }
 
         // 读取无人机配送中心
-        cout << "\n无人机配送中心坐标:" << endl;
         for (int i = 0; i < droneCenterCount; ++i)
         {
             int id;
@@ -138,8 +128,6 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
 
             problem.centers[vehicleCenterCount + i] = {id, x, y, 0, droneCount};
             problem.coordinates[id] = {x, y};  // 存储坐标映射
-            cout << "配送中心 " << id << ": (" << x << " km, " << y << " km), " 
-                 << droneCount << " 架无人机" << endl;
             
             // 创建无人机
             for (int j = 0; j < droneCount; ++j)
@@ -158,7 +146,6 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         }
 
         // 读取额外需求点
-        cout << "\n额外需求点坐标:" << endl;
         for (int i = 0; i < extraDemandCount; ++i)
         {
             int id;
@@ -177,7 +164,6 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
                 DeliveryProblem::DEFAULT_DELIVERY_WEIGHT
             };
             problem.coordinates[uniqueId] = {x, y};  // 存储坐标映射
-            cout << "任务点 " << uniqueId << " (原ID:" << id << "): (" << x << " km, " << y << " km)" << endl;
         }
 
         cout << "\n=====================================" << endl;
@@ -300,25 +286,80 @@ std::pair<double, double> convertLatLongToXY(double latitude, double longitude) 
     return {x, y};
 }
 
-// 添加一个新函数用于打印初始信息
+// 打印初始阶段的信息
 void printInitialInfo(const DeliveryProblem& problem) {
-    cout << "\n============= 初始信息 =============" << endl;
+    std::cout << "========== 初始阶段信息 ==========" << std::endl;
     
-    // 打印初始需求点ID
-    cout << "初始需求点ID：";
+    // 查找车辆和无人机的速度、载重和电量
+    double vehicleSpeed = 0.0, droneSpeed = 0.0, droneMaxLoad = 0.0, droneMaxFuel = 0.0;
+    for (const auto& vehicle : problem.vehicles) {
+        if (vehicle.maxLoad > 0) { // 无人机
+            droneSpeed = vehicle.speed;
+            droneMaxLoad = vehicle.maxLoad;
+            droneMaxFuel = vehicle.maxfuel;
+        } else { // 普通车辆
+            vehicleSpeed = vehicle.speed;
+        }
+    }
+    
+    // 输出基本参数
+    std::cout << "车辆速度: " << vehicleSpeed << " km/h" << std::endl;
+    std::cout << "无人机速度: " << droneSpeed << " km/h" << std::endl;
+    std::cout << "无人机载重: " << droneMaxLoad << " kg" << std::endl;
+    std::cout << "无人机电量: " << droneMaxFuel << " h" << std::endl;
+    std::cout << "时间权重: " << problem.timeWeight << std::endl;
+    std::cout << "延迟任务惩罚系数: " << DeliveryProblem::DEFAULT_DELAY_PENALTY << std::endl;
+    std::cout << "早高峰时间: [" << DeliveryProblem::MORNING_PEAK_START << ", " 
+              << DeliveryProblem::MORNING_PEAK_END << "], 速度系数: " 
+              << problem.morningPeakFactor << std::endl;
+    std::cout << "晚高峰时间: [" << DeliveryProblem::EVENING_PEAK_START << ", " 
+              << DeliveryProblem::EVENING_PEAK_END << "], 速度系数: " 
+              << problem.eveningPeakFactor << std::endl;
+    
+    // 输出配送中心信息
+    std::cout << "配送中心数量: " << problem.centers.size() << "个" << std::endl;
+    for (const auto& center : problem.centers) {
+        // 确定配送中心类型
+        std::string centerType;
+        if (center.vehicleCount > 0 && center.droneCount > 0) {
+            centerType = "混合配送中心";
+        } else if (center.vehicleCount > 0) {
+            centerType = "车辆配送中心";
+        } else if (center.droneCount > 0) {
+            centerType = "无人机配送中心";
+        } else {
+            centerType = "未知配送中心";
+        }
+        
+        std::cout << centerType << " ID: " << center.id << ", 坐标: (" << center.x << ", " << center.y 
+                  << "), 所含车辆/无人机ID: ";
+        for (size_t i = 0; i < center.vehicles.size(); ++i) {
+            if (i > 0) std::cout << ", ";
+            std::cout << center.vehicles[i];
+        }
+        std::cout << std::endl;
+    }
+    
+    // 输出任务点信息
+    std::cout << "任务点数量: " << problem.tasks.size() << "个" << std::endl;
+    std::cout << "初始任务点数量: " << problem.initialDemandCount << "个" << std::endl;
     for (size_t i = 0; i < problem.initialDemandCount; ++i) {
-        if (i > 0) cout << ", ";
-        cout << problem.tasks[i].id;
+        const auto& task = problem.tasks[i];
+        std::cout << "任务点坐标: (" << task.x << ", " << task.y << "), ID: " << task.id 
+                  << ", 取货重量: " << task.pickweight << ", 送货重量: " << task.sendWeight << std::endl;
     }
-    cout << endl;
     
-    // 打印额外需求点ID和时间
-    cout << "额外需求点ID：";
+    // 输出额外任务点信息
+    int extraCount = problem.tasks.size() - problem.initialDemandCount;
+    std::cout << "额外任务点数量: " << extraCount << "个" << std::endl;
     for (size_t i = problem.initialDemandCount; i < problem.tasks.size(); ++i) {
-        if (i > problem.initialDemandCount) cout << ", ";
-        cout << problem.tasks[i].id << " (time: " << problem.tasks[i].arrivaltime << "h)";
+        const auto& task = problem.tasks[i];
+        std::cout << "任务点坐标: (" << task.x << ", " << task.y << "), ID: " << task.id 
+                  << ", 到达时间: " << task.arrivaltime << "h, 取货重量: " << task.pickweight 
+                  << ", 送货重量: " << task.sendWeight << std::endl;
     }
-    cout << endl;
+    
+    std::cout << "========== 初始阶段信息结束 ==========" << std::endl;
 }
 
 void Print_DeliveryResults(
