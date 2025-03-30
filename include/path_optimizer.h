@@ -45,4 +45,14 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
     const DeliveryProblem& problem,
     const std::unordered_map<int, std::pair<int, double>>& taskVisitInfo);
 
+// 计算从一个点到另一个点需要的时间
+double calculateTimeNeeded(
+    int currentId,      // 当前点id
+    int destId,         // 目的点id
+    double currentTime, // 当前时间
+    const Vehicle& vehicle,
+    const DeliveryProblem& problem,
+    bool considerTraffic = false,  // 是否考虑高峰期
+    bool isDrone = false);  // 是否是无人机
+
 #endif // PATH_OPTIMIZER_H

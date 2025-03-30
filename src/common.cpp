@@ -249,7 +249,8 @@ double getDistance(int id1, int id2, const DeliveryProblem& problem, bool isDron
         return 0.0;
     }
     
-    
+    if (id1 > 30000) id1 -= 30000;
+    if (id2 > 30000) id2 -= 30000;
     
     if (isDrone) {
         // 获取两点坐标
@@ -482,3 +483,4 @@ void printCenterAssignments(const DeliveryProblem& problem) {
         }
     }
 }
+

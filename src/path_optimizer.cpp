@@ -856,3 +856,93 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
     
     return {path, times};
 }
+
+// 计算从一个点到另一个点需要的时间
+double calculateTimeNeeded(
+    int currentId,      // 当前点id
+    int destId,         // 目的点id
+    double currentTime, // 当前时间
+    const Vehicle& vehicle,
+    const DeliveryProblem& problem,
+    bool considerTraffic,  // 是否考虑高峰期
+    bool isDrone)  // 是否是无人机
+{
+    // 获取两点之间的距离
+    double distance = getDistance(currentId, destId, problem, isDrone);
+    
+    // 如果不考虑高峰期或者是无人机，直接计算
+    if (!considerTraffic || isDrone) {
+        return distance / vehicle.speed;
+    }
+    
+    // 车辆且考虑高峰期的情况，需要分段计算
+    double remainingDistance = distance;
+    double totalTime = 0.0;
+    double travelTime = currentTime;
+    
+    // 高峰期时间段定义
+    const double morningPeakStart = DeliveryProblem::MORNING_PEAK_START;
+    const double morningPeakEnd = DeliveryProblem::MORNING_PEAK_END;
+    const double eveningPeakStart = DeliveryProblem::EVENING_PEAK_START;
+    const double eveningPeakEnd = DeliveryProblem::EVENING_PEAK_END;
+    
+    // 车辆在正常时段的速度
+    double normalSpeed = vehicle.speed;
+    
+    // 持续计算直到所有距离都已经行驶
+    while (remainingDistance > 0.0001) {
+        // 判断当前时刻是否在高峰期
+        bool isMorningPeak = (travelTime >= morningPeakStart && travelTime < morningPeakEnd);
+        bool isEveningPeak = (travelTime >= eveningPeakStart && travelTime < eveningPeakEnd);
+        bool isPeakHour = isMorningPeak || isEveningPeak;
+        
+        // 当前速度系数和速度
+        double speedFactor = 1.0;
+        if (isPeakHour) {
+            speedFactor = getSpeedFactor(travelTime, currentId, destId, problem);
+        }
+        double currentSpeed = normalSpeed * speedFactor;
+        
+        // 计算到下一个时间段的时间
+        double timeToNextPhase = std::numeric_limits<double>::max();
+        
+        if (travelTime < morningPeakStart) {
+            // 当前在早高峰前
+            timeToNextPhase = morningPeakStart - travelTime;
+        } else if (travelTime < morningPeakEnd) {
+            // 当前在早高峰中
+            timeToNextPhase = morningPeakEnd - travelTime;
+        } else if (travelTime < eveningPeakStart) {
+            // 当前在早高峰后，晚高峰前
+            timeToNextPhase = eveningPeakStart - travelTime;
+        } else if (travelTime < eveningPeakEnd) {
+            // 当前在晚高峰中
+            timeToNextPhase = eveningPeakEnd - travelTime;
+        } else {
+            // 当前在晚高峰后
+            timeToNextPhase = 24.0 - travelTime + morningPeakStart; // 到第二天早高峰开始的时间
+        }
+        
+        // 以当前速度能行驶的距离
+        double distanceCanTravel = currentSpeed * timeToNextPhase;
+        
+        if (distanceCanTravel >= remainingDistance) {
+            // 如果可以到达目的地
+            double segmentTime = remainingDistance / currentSpeed;
+            totalTime += segmentTime;
+            remainingDistance = 0;
+        } else {
+            // 如果不能到达目的地，行驶至下一个时间段
+            totalTime += timeToNextPhase;
+            remainingDistance -= distanceCanTravel;
+            travelTime += timeToNextPhase;
+            
+            // 处理一天结束的情况
+            if (travelTime >= 24.0) {
+                travelTime -= 24.0;
+            }
+        }
+    }
+    
+    return totalTime;
+}
