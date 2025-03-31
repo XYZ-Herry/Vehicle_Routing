@@ -263,19 +263,19 @@ vector<double> calculateCompletionTimes(
         int fromId = path[i];
         int toId = path[i+1];
         
-        // 计算距离
-        double distance = getDistance(fromId, toId, problem, vehicle.maxLoad > 0);
+        // // 计算距离
+        // double distance = getDistance(fromId, toId, problem, vehicle.maxLoad > 0);
         
-        // 如果考虑交通，车辆调整速度
-        double speed = vehicle.speed;
-        if (considerTraffic && vehicle.maxLoad > 0) {
-            double speedFactor = getSpeedFactor(currentTime, fromId, toId, problem);
-            speed *= speedFactor;
-        }
+        // // 如果考虑交通，车辆调整速度
+        // double speed = vehicle.speed;
+        // if (considerTraffic && vehicle.maxLoad > 0) {
+        //     double speedFactor = getSpeedFactor(currentTime, fromId, toId, problem);
+        //     speed *= speedFactor;
+        // }
         
-        // 计算当前段的行驶时间
-        double travelTime = distance / speed;
-        
+        // // 计算当前段的行驶时间
+        // double travelTime = distance / speed;
+        double travelTime = calculateTimeNeeded(fromId, toId, currentTime, vehicle, problem, vehicle.maxLoad > 0);
         // 更新当前时间
         currentTime += travelTime;
         
@@ -445,9 +445,10 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
         // 如果只剩额外需求点未被访问，则等待
         if (onlyExtraDemandLeft && earliestExtraDemandId != -1) {
             // 计算从当前位置到最早额外需求点的时间（考虑高峰期）
-            double distToEarliestDemand = getDistance(currentPos, earliestExtraDemandId, problem, false);
-            double speedFactor = getSpeedFactor(currentTime, currentPos, earliestExtraDemandId, problem);
-            double timeToEarliestDemand = distToEarliestDemand / (vehicle.speed * speedFactor);
+            //double distToEarliestDemand = getDistance(currentPos, earliestExtraDemandId, problem, false);
+            //double speedFactor = getSpeedFactor(currentTime, currentPos, earliestExtraDemandId, problem);
+            //double timeToEarliestDemand = distToEarliestDemand / (vehicle.speed * speedFactor);
+            double timeToEarliestDemand = calculateTimeNeeded(currentPos, earliestExtraDemandId, currentTime, vehicle, problem, false, vehicle.maxLoad > 0);
             
             // 如果当前时间加上行驶时间小于额外需求点的到达时间，则等待
             if (currentTime + timeToEarliestDemand < earliestArrivalTime) {
@@ -473,8 +474,9 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
                 double distance = getDistance(currentPos, taskId, problem, false);
                 
                 // 考虑高峰期对速度的影响
-                double speedFactor = getSpeedFactor(currentTime, currentPos, taskId, problem);
-                double timeToTask = distance / (vehicle.speed * speedFactor);
+                //double speedFactor = getSpeedFactor(currentTime, currentPos, taskId, problem);
+                //double timeToTask = distance / (vehicle.speed * speedFactor);
+                double timeToTask = calculateTimeNeeded(currentPos, taskId, currentTime, vehicle, problem, false, vehicle.maxLoad > 0);
                 
                 // 添加额外需求点到达时间约束
                 if (taskIndex >= problem.initialDemandCount && 
@@ -496,8 +498,9 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
             path.push_back(nextId);
             
             // 考虑高峰期影响，计算实际行驶时间
-            double speedFactor = getSpeedFactor(currentTime, currentPos, nextId, problem);
-            double timeNeeded = minDistance / (vehicle.speed * speedFactor);
+            //double speedFactor = getSpeedFactor(currentTime, currentPos, nextId, problem);
+            //double timeNeeded = minDistance / (vehicle.speed * speedFactor);
+            double timeNeeded = calculateTimeNeeded(currentPos, nextId, currentTime, vehicle, problem, false, vehicle.maxLoad > 0);
             
             // 更新当前时间和位置
             currentTime += timeNeeded;
@@ -512,9 +515,10 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
     if (currentPos != centerId) {
         path.push_back(centerId);
         
-        double distance = getDistance(currentPos, centerId, problem, false);
-        double speedFactor = getSpeedFactor(currentTime, currentPos, centerId, problem);
-        double timeNeeded = distance / (vehicle.speed * speedFactor);
+        //double distance = getDistance(currentPos, centerId, problem, false);
+        //double speedFactor = getSpeedFactor(currentTime, currentPos, centerId, problem);
+        //double timeNeeded = distance / (vehicle.speed * speedFactor);
+        double timeNeeded = calculateTimeNeeded(currentPos, centerId, currentTime, vehicle, problem, false, vehicle.maxLoad > 0);
         
         currentTime += timeNeeded;
         times.push_back(currentTime);
