@@ -15,6 +15,7 @@ set(SOURCES
     src/path_optimizer.cpp
     src/solver.cpp
     src/dynamic_genetic.cpp
+    src/path_validator.cpp
 )
 
 # 添加头文件目录

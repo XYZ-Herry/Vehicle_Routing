@@ -275,7 +275,7 @@ vector<double> calculateCompletionTimes(
         
         // // 计算当前段的行驶时间
         // double travelTime = distance / speed;
-        double travelTime = calculateTimeNeeded(fromId, toId, currentTime, vehicle, problem, vehicle.maxLoad > 0);
+        double travelTime = calculateTimeNeeded(fromId, toId, currentTime, vehicle, problem, considerTraffic, vehicle.maxLoad > 0);
         // 更新当前时间
         currentTime += travelTime;
         
@@ -764,10 +764,12 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
                 if (bestReturnPoint != drone.centerId && taskVisitInfo.count(bestReturnPoint) > 0) {
                     double vehicleArrivalTime = taskVisitInfo.at(bestReturnPoint).second;
                     // 更新到达时间（考虑等待车辆）
+                    times.push_back(currentTime + flyingTime);//这里先记录到达当前时间，再更新
                     currentTime = std::max(currentTime + flyingTime, vehicleArrivalTime);
                 } else {
                     // 直接返回配送中心，不需要等待
                     currentTime += flyingTime;
+                    times.push_back(currentTime);
                 }
                 
                 // 在返回点充电和卸货
@@ -776,7 +778,7 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
                 maxProcessLoad = 0.0;
                 
                 // 记录到达时间
-                times.push_back(currentTime);
+                //times.push_back(currentTime);
             } else {
                 // 无法找到返回点，规划失败
                 return {{drone.centerId, drone.centerId}, {0.0, 0.0}};

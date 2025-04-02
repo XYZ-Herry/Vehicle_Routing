@@ -5,12 +5,16 @@
 #include <cmath>
 #include "common.h"
 #include "solver.h"
+#include "path_validator.h"
 
 using std::vector;
 using std::pair;
 using std::cout;
 using std::endl;
 using std::string;
+
+// 声明全局变量
+vector<int> delayedTasks, newTasks;
 
 int main(int argc, char* argv[])
 {
@@ -53,14 +57,50 @@ int main(int argc, char* argv[])
             staticMaxTime = std::max(staticMaxTime, completionTimes[completionTimes.size() - 2]);
         }
     }
-    
     // 输出静态阶段结果
     Print_DeliveryResults(problem, staticPaths);
     
+    // 验证静态阶段结果的正确性
+    bool staticCenterValid = validateStaticVehicleCenter(problem, staticPaths);
+    auto [staticPathValid, staticErrorMsg] = validateStaticPathLegality(problem, staticPaths);
+    
+    if (!staticCenterValid) {
+        cout << "静态阶段车辆中心分配验证失败!" << endl;
+    }
+    
+    if (!staticPathValid) {
+        cout << "静态阶段路径合法性验证失败:" << endl;
+        cout << staticErrorMsg << endl;
+    }
+    
+    // 解决动态配送问题
     auto dynamicPaths = solveDynamicProblem(problem, staticPaths, staticMaxTime);
     
-    // 输出动态阶段配送结果详情 - 使用新的结构化输出
+    // 输出动态阶段配送结果详情
     Print_DeliveryResults(problem, dynamicPaths);
+
+    // 验证动态阶段结果的正确性
+    bool dynamicCenterValid = validateDynamicVehicleCenter(
+        problem, staticPaths, dynamicPaths, staticMaxTime);
+    
+    auto [dynamicPathValid, dynamicErrorMsg] = validateDynamicPathLegality(
+        problem, dynamicPaths, newTasks);
+    
+    if (!dynamicCenterValid) {
+        cout << "动态阶段车辆中心分配验证失败!" << endl;
+    }
+    
+    if (!dynamicPathValid) {
+        cout << "动态阶段路径合法性验证失败:" << endl;
+        cout << dynamicErrorMsg << endl;
+    }
+    
+    // 输出验证结果总结
+    cout << "\n===== 路径验证结果 =====\n";
+    cout << "静态阶段车辆中心分配: " << (staticCenterValid ? "通过" : "失败") << endl;
+    cout << "静态阶段路径合法性: " << (staticPathValid ? "通过" : "失败") << endl;
+    cout << "动态阶段车辆中心分配: " << (dynamicCenterValid ? "通过" : "失败") << endl;
+    cout << "动态阶段路径合法性: " << (dynamicPathValid ? "通过" : "失败") << endl;
     
     return 0;
 }

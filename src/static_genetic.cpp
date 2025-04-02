@@ -62,7 +62,8 @@ double calculateFitness(
             path,
             tasks, 
             vehicle, 
-            problem);
+            problem,
+            false);
         
         if (completionTimes.size() >= 2) {
             maxCompletionTime = std::max(maxCompletionTime, completionTimes[completionTimes.size()-2]);

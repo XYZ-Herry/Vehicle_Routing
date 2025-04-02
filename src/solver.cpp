@@ -16,6 +16,7 @@ using std::unordered_set;
 using std::cout;
 using std::endl;
 using std::max;
+extern vector<int> delayedTasks, newTasks;
 
 // 优化所有车辆的路径 - 修改为返回<车辆ID, <路径, 时间>>的形式
 std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> static_optimizeAllPaths(
@@ -130,7 +131,7 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> solveD
     double staticMaxTime)
 {
     // 识别需要重新调度的任务
-    vector<int> delayedTasks, newTasks;
+    //vector<int> delayedTasks, newTasks;
     identifyTasksForRescheduling(problem, staticPaths, staticMaxTime, delayedTasks, newTasks);
     
     cout << "延迟任务数量: " << delayedTasks.size() << endl;
