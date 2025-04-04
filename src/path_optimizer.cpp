@@ -449,7 +449,7 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
             //double speedFactor = getSpeedFactor(currentTime, currentPos, earliestExtraDemandId, problem);
             //double timeToEarliestDemand = distToEarliestDemand / (vehicle.speed * speedFactor);
             double timeToEarliestDemand = calculateTimeNeeded(currentPos, earliestExtraDemandId, currentTime, vehicle, problem, false, vehicle.maxLoad > 0);
-            
+
             // 如果当前时间加上行驶时间小于额外需求点的到达时间，则等待
             if (currentTime + timeToEarliestDemand < earliestArrivalTime) {
                 currentTime = earliestArrivalTime;
@@ -534,19 +534,19 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
 
 // 考虑车辆协同的drone路径规划
 std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
-    const std::vector<int>& taskIds,
+    const std::vector<int>& assignedTaskIds,
     const std::vector<TaskPoint>& tasks,
     const Vehicle& drone,
     const DeliveryProblem& problem,
     const std::unordered_map<int, std::pair<int, double>>& taskVisitInfo
 ) {
-    if (taskIds.empty()) {
+    if (assignedTaskIds.empty()) {
         return {{drone.centerId, drone.centerId}, {0.0, 0.0}};
     }
     
     std::vector<int> path;
     std::vector<double> times;  // 添加时间记录
-    std::vector<bool> visited(taskIds.size(), false);
+    std::vector<bool> visited(assignedTaskIds.size(), false);
     int currentPos = drone.centerId;
     path.push_back(currentPos);
     times.push_back(0.0);  // 初始时间为0
@@ -555,69 +555,24 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
     double currentLoad = 0.0;
     double maxProcessLoad = 0.0;
     double currentTime = 0.0;
-    
+
     // 添加最大迭代次数限制
-    int maxIterations = taskIds.size() * 2;
+    int maxIterations = assignedTaskIds.size() * 3;
     int iterations = 0;
+    bool backpoint_iscenter = true;
     
     // 当还有未访问的任务点时继续循环
-    while (anyTaskUnvisited(visited, taskIds) && iterations < maxIterations) {
+    while (anyTaskUnvisited(visited, assignedTaskIds) && iterations < maxIterations) {
         iterations++;
-        
-        // 检查是否只剩下额外需求点未访问
-        bool onlyExtraDemandLeft = true;
-        double earliestArrivalTime = std::numeric_limits<double>::max();
-        int earliestExtraDemandId = -1;
-        int earliestExtraDemandIndex = -1;
-        // 查找最早可访问的额外需求点
-        for (size_t i = 0; i < taskIds.size(); i++) {
-            if (visited[i]) continue;
-            
-            int taskId = taskIds[i];
-            int taskIndex = problem.taskIdToIndex.at(taskId);
-            const TaskPoint& task = tasks[taskIndex];
-            
-            // 如果不是额外需求点，标记不仅有额外需求点
-            if (taskIndex < problem.initialDemandCount) {
-                onlyExtraDemandLeft = false;
-                break;
-            }
-            // 记录最早的额外需求点到达时间
-            else if (taskIndex >= problem.initialDemandCount) {
-                if (task.arrivaltime < earliestArrivalTime) {
-                    earliestArrivalTime = task.arrivaltime;
-                    earliestExtraDemandId = taskId;
-                    earliestExtraDemandIndex = i;
-                }
-            }
-        }
-        
-        // 如果只剩额外需求点未被访问，则等待
-        if (onlyExtraDemandLeft && earliestExtraDemandId != -1) {
-            // 计算从当前位置到最早额外需求点的时间
-            double distToEarliestDemand = getDistance(currentPos, earliestExtraDemandId, problem, true);
-            double timeToEarliestDemand = distToEarliestDemand / drone.speed;
-            
-            //如果当前时间加上行驶时间小于最早额外需求点的到达时间
-            if (currentTime + timeToEarliestDemand < earliestArrivalTime) {
-                // 在配送中心等待，直到可以前往最早额外需求点
-                currentTime = earliestArrivalTime;
-                currentPos = earliestExtraDemandId;
-                path.push_back(currentPos);
-                times.push_back(currentTime);
-                visited[earliestExtraDemandIndex] = true;
-            }
-        }
-        
         double minDistance = std::numeric_limits<double>::max();
         int nextIndex = -1;
         int nextId = -1;
         
         // 寻找满足约束的下一个任务点
-        for (size_t i = 0; i < taskIds.size(); i++) {
+        for (size_t i = 0; i < assignedTaskIds.size(); i++) {
             if (visited[i]) continue;
             
-            int taskId = taskIds[i];
+            int taskId = assignedTaskIds[i];
             int taskIndex = problem.taskIdToIndex.at(taskId);
             const TaskPoint& task = tasks[taskIndex];
             
@@ -635,12 +590,14 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
             
             
             // 添加额外需求点到达时间约束
-            if (taskIndex >= problem.initialDemandCount && currentTime + batteryNeededToTask < task.arrivaltime) {
+            if (taskIndex >= problem.initialDemandCount && currentTime + batteryNeededToTask + 0.000001 < task.arrivaltime) {
+                //精度问题，给我坑惨了，调了一晚上 + 0.000001
                 continue; // 额外需求点尚未到达，不能访问
             }
             
             // 检查电量是否足够到达任务点
             if (batteryNeededToTask > currentBattery) continue;
+            
             
             // 检查从任务点是否有可行的返回点
             bool canReturn = false;
@@ -653,8 +610,10 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
             double minRequiredBattery = drone.maxfuel * 0.1; // 10%的最大电量
             double remainingBatteryAfterTask = currentBattery - batteryNeededToTask;
             
+            
             // 如果剩余电量低于10%的门槛，跳过这个任务点
             if (remainingBatteryAfterTask < minRequiredBattery) continue;
+            
             
             if (batteryNeededToTask + batteryToOriginalCenter <= currentBattery) {
                 canReturn = true;
@@ -682,6 +641,7 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
             // 如果找不到可返回的点，跳过该任务点
             if (!canReturn) continue;
             
+            
             // 更新最近的下一个任务点
             if (distanceToTask < minDistance) {
                 minDistance = distanceToTask;
@@ -692,6 +652,7 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
         
         // 如果找到下一个可行任务点
         if (nextIndex != -1) {
+            backpoint_iscenter = false;
             // 访问该任务点
             visited[nextIndex] = true;
             path.push_back(nextId);
@@ -714,6 +675,44 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
             // 记录到达时间
             times.push_back(currentTime);
         } else {
+            if (backpoint_iscenter){
+                //找到最早的未完成的额外任务点
+                int earliestExtraDemandId = -1;
+                int earliestExtraDemandIndex = -1;
+                double earliestArrivalTime = std::numeric_limits<double>::max();
+                for (size_t i = 0; i < assignedTaskIds.size(); i++) {
+                    if (!visited[i]) {
+                        int taskId = assignedTaskIds[i];
+                        int taskIndex = problem.taskIdToIndex.at(taskId);
+                        if (taskIndex >= problem.initialDemandCount) {
+                            if (tasks[taskIndex].arrivaltime < earliestArrivalTime) {
+                                earliestArrivalTime = tasks[taskIndex].arrivaltime;
+                                earliestExtraDemandId = taskId;
+                                earliestExtraDemandIndex = i;
+                            }
+                        }
+                    }
+                }
+                if (earliestExtraDemandId != -1) {//有额外需求点可以返回
+                    //double timeToEarliestDemand = calculateTimeNeeded(currentPos, earliestExtraDemandId, currentTime, drone, problem, false, drone.maxLoad > 0);
+                    double distanceToEarliestDemand = getDistance(currentPos, earliestExtraDemandId, problem, true);
+                    double timeToEarliestDemand = distanceToEarliestDemand / drone.speed;
+                    currentTime = earliestArrivalTime - timeToEarliestDemand;
+
+                    const TaskPoint& task = tasks[earliestExtraDemandIndex];
+                    // 如果约束不满足，标记为已访问
+                    if (timeToEarliestDemand > currentBattery || currentLoad + task.pickweight > drone.maxLoad) {
+                        std::cout << "电量或载重约束不满足，跳过该任务点" << std::endl;
+                        visited[earliestExtraDemandIndex] = true;
+                    }
+                    //if (iterations == maxIterations - 1) std::cout << "?" << timeToEarliestDemand;
+                }
+                else {
+                    std::cout << "出错了，没点可以返回了" << std::endl;
+                }
+                continue;
+            }
+            backpoint_iscenter = true;
             // 无法找到下一个任务点，需要返回某个点
             int bestReturnPoint = drone.centerId;
             double minReturnTime = std::numeric_limits<double>::max(); // 最早可以完成返回的时间
