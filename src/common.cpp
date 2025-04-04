@@ -304,10 +304,10 @@ void printInitialInfo(const DeliveryProblem& problem) {
     }
     
     // 输出基本参数
-    std::cout << "车辆速度: " << vehicleSpeed << " km/h" << std::endl;
-    std::cout << "无人机速度: " << droneSpeed << " km/h" << std::endl;
-    std::cout << "无人机载重: " << droneMaxLoad << " kg" << std::endl;
-    std::cout << "无人机电量: " << droneMaxFuel << " h" << std::endl;
+    std::cout << "Car速度: " << vehicleSpeed << " km/h" << std::endl;
+    std::cout << "Drone速度: " << droneSpeed << " km/h" << std::endl;
+    std::cout << "Drone载重: " << droneMaxLoad << " kg" << std::endl;
+    std::cout << "Drone电量: " << droneMaxFuel << " h" << std::endl;
     std::cout << "时间权重: " << problem.timeWeight << std::endl;
     std::cout << "延迟任务惩罚系数: " << DeliveryProblem::DEFAULT_DELAY_PENALTY << std::endl;
     std::cout << "早高峰时间: [" << DeliveryProblem::MORNING_PEAK_START << ", " 
@@ -325,15 +325,15 @@ void printInitialInfo(const DeliveryProblem& problem) {
         if (center.vehicleCount > 0 && center.droneCount > 0) {
             centerType = "混合配送中心";
         } else if (center.vehicleCount > 0) {
-            centerType = "车辆配送中心";
+            centerType = "Car配送中心";
         } else if (center.droneCount > 0) {
-            centerType = "无人机配送中心";
+            centerType = "Drone配送中心";
         } else {
             centerType = "未知配送中心";
         }
         
         std::cout << centerType << " ID: " << center.id << ", 坐标: (" << center.x << ", " << center.y 
-                  << "), 所含车辆/无人机ID: ";
+                  << "), 所含car/drone ID: ";
         for (size_t i = 0; i < center.vehicles.size(); ++i) {
             if (i > 0) std::cout << ", ";
             std::cout << center.vehicles[i];
@@ -378,9 +378,9 @@ void Print_DeliveryResults(
         int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
         const auto& vehicle = problem.vehicles[vehicleIndex];
         
-        cout << "车辆 #" << vehicleId << " (";
-        cout << (vehicle.maxLoad > 0 ? "无人机" : "卡车");
-        cout << ") 的路径: ";
+        // 使用英文统一输出车辆类型
+        bool isDrone = (vehicle.maxLoad > 0);
+        cout << (isDrone ? "Drone" : "Car") << " #" << vehicleId << " 的路径: ";
         
         // 输出路径上的每个点
         for (size_t i = 0; i < path.size(); ++i) {
@@ -423,7 +423,6 @@ void Print_DeliveryResults(
     auto [totalTime, totalCost] = calculateTotalTimeAndCost(problem, allPaths);
     cout << "所有任务的最晚完成时间: " << totalTime << " 小时" << endl;
     cout << "总成本: " << totalCost << " 元" << endl;
-    //cout << "目标值：" << timeWeight * totalTime + (1.0 - timeWeight) * totalCost << endl;
 }
 
 // 输出配送中心的车辆分配和任务分配情况
@@ -454,9 +453,9 @@ void printCenterAssignments(const DeliveryProblem& problem) {
         if (hasDrones && hasTrucks)
             cout << "混合配送中心";
         else if (hasDrones)
-            cout << "无人机配送中心";
+            cout << "Drone配送中心";
         else
-            cout << "车辆配送中心";
+            cout << "Car配送中心";
         
         cout << "): " << centerToVehicles[center.id].size() << " 个车辆，分别是：";
         

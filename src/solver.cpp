@@ -214,8 +214,7 @@ void identifyTasksForRescheduling(
             path, problem.tasks, vehicle, problem, true);
         
         // 输出该车辆在高峰期的路径时间
-        std::cout << (isDrone ? "无人机" : "车辆") << " #" << vehicleId << " (" 
-                  << (isDrone ? "无人机" : "卡车") << ") 的路径: ";
+        std::cout << (isDrone ? "Drone" : "Car") << " #" << vehicleId << "的路径: ";
         
         // 输出路径，区分中心和任务点
         for (size_t i = 0; i < path.size(); ++i) {

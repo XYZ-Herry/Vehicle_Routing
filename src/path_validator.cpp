@@ -11,7 +11,7 @@ using std::string;
 using std::cout;
 using std::endl;
 
-// 验证静态阶段路径中车辆/无人机是否属于一开始分到的配送中心
+// 验证静态阶段路径中car/drone是否属于一开始分到的配送中心
 bool validateStaticVehicleCenter(
     const DeliveryProblem& problem,
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths) 
@@ -24,16 +24,22 @@ bool validateStaticVehicleCenter(
         
         if (path.empty()) continue;
         
-        // 获取车辆对象
+        // 获取Vehicle对象
         const Vehicle& vehicle = problem.vehicles[problem.vehicleIdToIndex.at(vehicleId)];
         
-        // 检查车辆是否属于其配送中心
+        // 检查car/drone是否属于其配送中心
         int vehicleCenterId = vehicle.centerId;
         int pathCenterId = path.front(); // 路径起点应该是配送中心
         
         if (vehicleCenterId != pathCenterId) {
-            cout << "错误: 车辆 " << vehicleId << " 的路径不是从其所属配送中心 " 
-                 << vehicleCenterId << " 出发，而是从 " << pathCenterId << " 出发" << endl;
+            // 判断是car还是drone
+            if (vehicle.maxLoad > 0) {
+                cout << "错误: drone " << vehicleId << " 的路径不是从其所属配送中心 " 
+                     << vehicleCenterId << " 出发，而是从 " << pathCenterId << " 出发" << endl;
+            } else {
+                cout << "错误: car " << vehicleId << " 的路径不是从其所属配送中心 " 
+                     << vehicleCenterId << " 出发，而是从 " << pathCenterId << " 出发" << endl;
+            }
             isValid = false;
         }
     }
@@ -41,7 +47,7 @@ bool validateStaticVehicleCenter(
     return isValid;
 }
 
-// 验证动态阶段中未超时的车辆是否仍属于原配送中心
+// 验证动态阶段中未超时的car/drone是否仍属于原配送中心
 bool validateDynamicVehicleCenter(
     const DeliveryProblem& problem,
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
@@ -51,7 +57,7 @@ bool validateDynamicVehicleCenter(
     bool isValid = true;
     
     // 收集静态阶段中未超时的任务
-    std::unordered_map<int, int> taskToVehicle; // 任务ID -> 分配的车辆ID
+    std::unordered_map<int, int> taskToVehicle; // 任务ID -> 分配的Vehicle ID
     
     for (const auto& [vehicleId, pathData] : staticPaths) {
         const auto& [path, times] = pathData;
@@ -59,7 +65,7 @@ bool validateDynamicVehicleCenter(
         // 跳过空路径
         if (path.empty() || times.empty()) continue;
         
-        // 获取车辆对象
+        // 获取Vehicle对象
         const Vehicle& vehicle = problem.vehicles[problem.vehicleIdToIndex.at(vehicleId)];
         
         // 遍历路径中的每个任务点
@@ -88,14 +94,21 @@ bool validateDynamicVehicleCenter(
             if (taskToVehicle.count(taskId)) {
                 int originalVehicleId = taskToVehicle[taskId];
                 
-                // 检查车辆是否属于同一个配送中心
+                // 检查Vehicle是否属于同一个配送中心
                 const Vehicle& originalVehicle = problem.vehicles[problem.vehicleIdToIndex.at(originalVehicleId)];
                 const Vehicle& currentVehicle = problem.vehicles[problem.vehicleIdToIndex.at(vehicleId)];
                 
                 if (originalVehicle.centerId != currentVehicle.centerId) {
-                    cout << "错误: 动态阶段中任务 " << taskId << " 被分配给了不同配送中心的车辆。"
-                         << "原配送中心: " << originalVehicle.centerId 
-                         << ", 当前配送中心: " << currentVehicle.centerId << endl;
+                    // 判断是car还是drone
+                    if (currentVehicle.maxLoad > 0) {
+                        cout << "错误: 动态阶段drone " << vehicleId << " 处理了任务 " << taskId 
+                             << "，但该任务原本应由配送中心 " << originalVehicle.centerId 
+                             << " 的Vehicle处理" << endl;
+                    } else {
+                        cout << "错误: 动态阶段car " << vehicleId << " 处理了任务 " << taskId 
+                             << "，但该任务原本应由配送中心 " << originalVehicle.centerId 
+                             << " 的Vehicle处理" << endl;
+                    }
                     isValid = false;
                 }
             }
@@ -105,29 +118,31 @@ bool validateDynamicVehicleCenter(
     return isValid;
 }
 
-// 验证静态阶段路径合法性(无人机电量、载重约束，时间计算)
+// 验证静态阶段路径合法性(drone电量、载重约束，时间计算)
 std::pair<bool, std::string> validateStaticPathLegality(
     const DeliveryProblem& problem,
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths)
 {
     bool isValid = true;
-    std::string errorMessage;
+    string errorMessage = "";
     
-    // 遍历所有车辆/无人机的路径
+    // 遍历所有路径
     for (const auto& [vehicleId, pathData] : staticPaths) {
         const auto& [path, reportedTimes] = pathData;
         
         // 跳过空路径
         if (path.empty() || path.size() < 2) continue;
         
-        // 获取车辆/无人机对象
-        int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
-        const Vehicle& vehicle = problem.vehicles[vehicleIndex];
+        // 获取Vehicle对象
+        const Vehicle& vehicle = problem.vehicles[problem.vehicleIdToIndex.at(vehicleId)];
         
-        // 判断是否为无人机 - 根据maxLoad判断
-        bool isDrone = vehicle.maxLoad > 0;
+        // 检查是否为drone（drone有最大载重和电量限制）
+        bool isDrone = (vehicle.maxLoad > 0);
         
-        // 如果是无人机，验证电量和载重约束
+        // 自己计算时间以验证
+        vector<double> calculatedTimes;
+        calculatedTimes.push_back(0.0); // 起始时间为0
+        
         if (isDrone) {
             double currentBattery = vehicle.maxfuel;
             double currentLoad = 0.0;
@@ -143,7 +158,7 @@ std::pair<bool, std::string> validateStaticPathLegality(
                 
                 // 验证电量是否足够
                 if (batteryNeeded > currentBattery) {
-                    errorMessage += "错误: 无人机 " + std::to_string(vehicleId) + 
+                    errorMessage += "错误: drone " + std::to_string(vehicleId) + 
                                    " 在前往任务点 " + std::to_string(currentId) + 
                                    " 时电量不足。需要: " + std::to_string(batteryNeeded) + 
                                    ", 剩余: " + std::to_string(currentBattery) + "\n";
@@ -152,6 +167,11 @@ std::pair<bool, std::string> validateStaticPathLegality(
                 
                 // 更新电量
                 currentBattery -= batteryNeeded;
+                
+                // 计算到达时间
+                double timeNeeded = batteryNeeded; // 对drone来说，消耗的时间等于消耗的电量
+                double arrivalTime = calculatedTimes.back() + timeNeeded;
+                calculatedTimes.push_back(arrivalTime);
                 
                 // 如果到达了配送中心，重置电量和载重
                 if (problem.centerIds.count(currentId)) {
@@ -169,7 +189,7 @@ std::pair<bool, std::string> validateStaticPathLegality(
                     
                     // 验证载重是否超过限制
                     if (currentLoad > vehicle.maxLoad || maxLoadDuringTrip > vehicle.maxLoad) {
-                        errorMessage += "错误: 无人机 " + std::to_string(vehicleId) + 
+                        errorMessage += "错误: drone " + std::to_string(vehicleId) + 
                                        " 在任务点 " + std::to_string(currentId) + 
                                        " 超过载重限制。当前载重: " + std::to_string(currentLoad) + 
                                        ", 最大载重: " + std::to_string(vehicle.maxLoad) + "\n";
@@ -179,49 +199,57 @@ std::pair<bool, std::string> validateStaticPathLegality(
                 
                 lastPointId = currentId;
             }
-        }
-        
-        // 手动计算并验证时间（对于所有车辆和无人机）
-        std::vector<double> calculatedTimes;
-        double currentTime = 0.0; // 起点时间为0
-        calculatedTimes.push_back(currentTime);
-        
-        int lastPointId = path[0]; // 从路径第一个点开始
-        
-        for (size_t i = 1; i < path.size(); ++i) {
-            int currentId = path[i];
+        } else {
+            // 对于car，只需计算到达每个点的时间
+            int lastPointId = path[0];
             
-            // 获取两点间距离
-            double distance = getDistance(lastPointId, currentId, problem, isDrone);
-            
-            // 计算行驶时间
-            double travelTime = distance / vehicle.speed;
-            
-            // 累加到达时间
-            currentTime += travelTime;
-            calculatedTimes.push_back(currentTime);
-            
-            lastPointId = currentId;
+            for (size_t i = 1; i < path.size(); ++i) {
+                int currentId = path[i];
+                
+                // 计算从上一点到当前点的距离和时间
+                double distance = getDistance(lastPointId, currentId, problem, false);
+                double timeNeeded = distance / vehicle.speed;
+                
+                // 计算到达时间
+                double arrivalTime = calculatedTimes.back() + timeNeeded;
+                calculatedTimes.push_back(arrivalTime);
+                
+                lastPointId = currentId;
+            }
         }
         
         // 验证时间计算是否正确
         if (calculatedTimes.size() != reportedTimes.size()) {
-            errorMessage += "错误: " + std::string(isDrone ? "无人机 " : "车辆 ") + std::to_string(vehicleId) + 
-                           " 的时间点数量不匹配。计算得到 " + 
-                           std::to_string(calculatedTimes.size()) + 
-                           ", 实际报告 " + std::to_string(reportedTimes.size()) + "\n";
+            if (isDrone) {
+                errorMessage += "错误: drone " + std::to_string(vehicleId) + 
+                               " 的时间点数量不匹配。计算得到 " + 
+                               std::to_string(calculatedTimes.size()) + 
+                               ", 实际报告 " + std::to_string(reportedTimes.size()) + "\n";
+            } else {
+                errorMessage += "错误: car " + std::to_string(vehicleId) + 
+                               " 的时间点数量不匹配。计算得到 " + 
+                               std::to_string(calculatedTimes.size()) + 
+                               ", 实际报告 " + std::to_string(reportedTimes.size()) + "\n";
+            }
             isValid = false;
         } else {
             for (size_t i = 0; i < calculatedTimes.size(); ++i) {
                 // 允许一定的浮点误差
                 double timeDiff = std::abs(calculatedTimes[i] - reportedTimes[i]);
-                
-                if (timeDiff > 0.001) {
-                    errorMessage += "错误: " + std::string(isDrone ? "无人机 " : "车辆 ") + std::to_string(vehicleId) + 
-                                   " 在点 " + std::to_string(path[i]) + 
-                                   " 的时间计算不正确。计算得到 " + 
-                                   std::to_string(calculatedTimes[i]) + 
-                                   ", 实际报告 " + std::to_string(reportedTimes[i]) + "\n";
+                if (timeDiff > 0.001) { // 允许误差0.001
+                    if (isDrone) {
+                        errorMessage += "错误: drone " + std::to_string(vehicleId) + 
+                                       " 在点 " + std::to_string(path[i]) + 
+                                       " 的时间计算不正确。计算得到 " + 
+                                       std::to_string(calculatedTimes[i]) + 
+                                       ", 实际报告 " + std::to_string(reportedTimes[i]) + "\n";
+                    } else {
+                        errorMessage += "错误: car " + std::to_string(vehicleId) + 
+                                       " 在点 " + std::to_string(path[i]) + 
+                                       " 的时间计算不正确。计算得到 " + 
+                                       std::to_string(calculatedTimes[i]) + 
+                                       ", 实际报告 " + std::to_string(reportedTimes[i]) + "\n";
+                    }
                     isValid = false;
                 }
             }
@@ -238,33 +266,33 @@ std::pair<bool, std::string> validateDynamicPathLegality(
     const std::vector<int>& extraTaskIds)
 {
     bool isValid = true;
-    std::string errorMessage;
+    string errorMessage = "";
     
     // 创建额外任务ID的集合，便于快速查找
     std::unordered_set<int> extraTaskSet(extraTaskIds.begin(), extraTaskIds.end());
     
-    // 首先收集所有车辆到达各点的时间，用于协同点验证
-    std::unordered_map<int, double> vehicleArrivalTimes; // 任务点ID -> 车辆到达时间
+    // 首先收集所有Vehicle到达各点的时间，用于协同点验证
+    std::unordered_map<int, double> vehicleArrivalTimes; // 任务点ID -> Vehicle到达时间
     
-    // 阶段1：收集所有车辆的到达时间
+    // 阶段1：收集所有Vehicle的到达时间
     for (const auto& [vehicleId, pathData] : dynamicPaths) {
         const auto& [path, reportedTimes] = pathData;
         
         // 跳过空路径
         if (path.empty()) continue;
         
-        // 获取车辆对象
+        // 获取Vehicle对象
         int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
         const Vehicle& vehicle = problem.vehicles[vehicleIndex];
         
-        // 跳过无人机
+        // 跳过drone
         if (vehicle.maxLoad > 0) continue;
         
-        // 记录车辆到达每个点的时间
+        // 记录Vehicle到达每个点的时间
         for (size_t i = 0; i < path.size(); ++i) {
             int pointId = path[i];
             if (!problem.centerIds.count(pointId)) { // 如果不是配送中心
-                vehicleArrivalTimes[pointId] = reportedTimes[i]; // 记录车辆到达时间
+                vehicleArrivalTimes[pointId] = reportedTimes[i]; // 记录Vehicle到达时间
             }
         }
     }
@@ -276,21 +304,21 @@ std::pair<bool, std::string> validateDynamicPathLegality(
         // 跳过空路径
         if (path.empty()) continue;
         
-        // 获取车辆对象
+        // 获取Vehicle对象
         int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
         const Vehicle& vehicle = problem.vehicles[vehicleIndex];
         
-        // 是否为无人机
+        // 是否为drone
         bool isDrone = vehicle.maxLoad > 0;
         
         // 手动计算时间，考虑高峰期和额外任务点约束
-        std::vector<double> calculatedTimes;
+        vector<double> calculatedTimes;
         double currentTime = 0.0;  // 起点时间为0
         int lastPointId = path[0];  // 起点ID
         
         calculatedTimes.push_back(currentTime);  // 记录起点时间
         
-        // 如果是无人机，同时验证电量和载重约束
+        // 如果是drone，同时验证电量和载重约束
         double currentBattery = isDrone ? vehicle.maxfuel : 0.0;
         double currentLoad = 0.0;
         double maxLoadDuringTrip = 0.0;
@@ -318,23 +346,23 @@ std::pair<bool, std::string> validateDynamicPathLegality(
                 }
             }
             calculatedTimes.push_back(arrivalTime);//这里先记录到达当前时间，再更新
-            // 检查是否为协同点，需要等待车辆到达
+            // 检查是否为协同点，需要等待Vehicle到达
             bool isCollaborationPoint = (currentId >= 30000);
             if (isCollaborationPoint && isDrone) {
                 int originalTaskId = currentId - 30000; // 获取原始任务点ID
                 
-                // 检查车辆是否访问了该点
+                // 检查Vehicle是否访问了该点
                 if (vehicleArrivalTimes.count(originalTaskId)) {
                     double vehicleArrivalTime = vehicleArrivalTimes[originalTaskId];
                     
-                    // 无人机需要等待车辆到达
+                    // drone需要等待Vehicle到达
                     if (arrivalTime < vehicleArrivalTime) {
                         arrivalTime = vehicleArrivalTime;
                     }
                 } else {
-                    errorMessage += "错误: 动态阶段无人机 " + std::to_string(vehicleId) + 
+                    errorMessage += "错误: 动态阶段drone " + std::to_string(vehicleId) + 
                                   " 在协同点 " + std::to_string(currentId) + 
-                                  " 等待的车辆未访问对应任务点 " + std::to_string(originalTaskId) + "\n";
+                                  " 等待的Vehicle未访问对应任务点 " + std::to_string(originalTaskId) + "\n";
                     isValid = false;
                 }
             }
@@ -342,12 +370,12 @@ std::pair<bool, std::string> validateDynamicPathLegality(
             // 更新当前时间
             currentTime = arrivalTime;
             
-            // 对无人机进行额外的电量和载重验证
+            // 对drone进行额外的电量和载重验证
             if (isDrone) {
                 // 验证电量是否足够
-                double batteryNeeded = timeNeeded;  // 对无人机来说，耗电量等于飞行时间
+                double batteryNeeded = timeNeeded;  // 对drone来说，耗电量等于飞行时间
                 if (batteryNeeded > currentBattery) {
-                    errorMessage += "错误: 动态阶段无人机 " + std::to_string(vehicleId) + 
+                    errorMessage += "错误: 动态阶段drone " + std::to_string(vehicleId) + 
                                    " 在前往任务点 " + std::to_string(currentId) + 
                                    " 时电量不足。需要: " + std::to_string(batteryNeeded) + 
                                    ", 剩余: " + std::to_string(currentBattery) + "\n";
@@ -373,7 +401,7 @@ std::pair<bool, std::string> validateDynamicPathLegality(
                     
                     // 验证载重是否超过限制
                     if (currentLoad > vehicle.maxLoad || maxLoadDuringTrip > vehicle.maxLoad) {
-                        errorMessage += "错误: 动态阶段无人机 " + std::to_string(vehicleId) + 
+                        errorMessage += "错误: 动态阶段drone " + std::to_string(vehicleId) + 
                                        " 在任务点 " + std::to_string(currentId) + 
                                        " 超过载重限制。当前载重: " + std::to_string(currentLoad) + 
                                        ", 最大载重: " + std::to_string(vehicle.maxLoad) + "\n";
@@ -387,21 +415,36 @@ std::pair<bool, std::string> validateDynamicPathLegality(
         
         // 验证时间计算是否正确
         if (calculatedTimes.size() != reportedTimes.size()) {
-            errorMessage += "错误: 动态阶段车辆 " + std::to_string(vehicleId) + 
-                           " 的时间点数量不匹配。计算得到 " + 
-                           std::to_string(calculatedTimes.size()) + 
-                           ", 实际报告 " + std::to_string(reportedTimes.size()) + "\n";
+            if (isDrone) {
+                errorMessage += "错误: drone " + std::to_string(vehicleId) + 
+                               " 的时间点数量不匹配。计算得到 " + 
+                               std::to_string(calculatedTimes.size()) + 
+                               ", 实际报告 " + std::to_string(reportedTimes.size()) + "\n";
+            } else {
+                errorMessage += "错误: car " + std::to_string(vehicleId) + 
+                               " 的时间点数量不匹配。计算得到 " + 
+                               std::to_string(calculatedTimes.size()) + 
+                               ", 实际报告 " + std::to_string(reportedTimes.size()) + "\n";
+            }
             isValid = false;
         } else {
             for (size_t i = 0; i < calculatedTimes.size(); ++i) {
                 // 允许一定的浮点误差
                 double timeDiff = std::abs(calculatedTimes[i] - reportedTimes[i]);
                 if (timeDiff > 0.01) {  // 动态阶段允许稍大的误差，因为高峰期计算更复杂
-                    errorMessage += "错误: 动态阶段车辆 " + std::to_string(vehicleId) + 
-                                   " 在点 " + std::to_string(path[i]) + 
-                                   " 的时间计算不正确。计算得到 " + 
-                                   std::to_string(calculatedTimes[i]) + 
-                                   ", 实际报告 " + std::to_string(reportedTimes[i]) + "\n";
+                    if (isDrone) {
+                        errorMessage += "错误: drone " + std::to_string(vehicleId) + 
+                                       " 在点 " + std::to_string(path[i]) + 
+                                       " 的时间计算不正确。计算得到 " + 
+                                       std::to_string(calculatedTimes[i]) + 
+                                       ", 实际报告 " + std::to_string(reportedTimes[i]) + "\n";
+                    } else {
+                        errorMessage += "错误: car " + std::to_string(vehicleId) + 
+                                       " 在点 " + std::to_string(path[i]) + 
+                                       " 的时间计算不正确。计算得到 " + 
+                                       std::to_string(calculatedTimes[i]) + 
+                                       ", 实际报告 " + std::to_string(reportedTimes[i]) + "\n";
+                    }
                     isValid = false;
                 }
             }

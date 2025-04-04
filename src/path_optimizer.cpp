@@ -27,7 +27,7 @@ vector<int> optimizePathForVehicle(
     
     int centerId = vehicle.centerId;
     
-    // 检查是否为无人机（无人机有最大载重限制）
+    // 检查是否为drone（drone有最大载重限制）
     bool isDrone = (vehicle.maxLoad > 0);
     
     if (!isDrone) {
@@ -53,7 +53,7 @@ vector<int> optimizePathForVehicle(
                         currentPos, 
                         taskId, 
                         problem,
-                        false); // 非无人机
+                        false); // 非drone
                     
                     if (distance < minDistance) {
                         minDistance = distance;
@@ -77,7 +77,7 @@ vector<int> optimizePathForVehicle(
         
         return path;
     } else {
-        // 无人机路径规划，考虑电量和载重约束
+        // drone路径规划，考虑电量和载重约束
         vector<int> path;
         vector<bool> visited(assignedTaskIds.size(), false);
         
@@ -85,7 +85,7 @@ vector<int> optimizePathForVehicle(
         path.push_back(centerId);
         int currentPos = centerId;
         
-        // 无人机初始状态
+        // drone初始状态
         double currentBattery = vehicle.maxfuel; // 满电量
         double currentLoad = 0.0; // 初始载重为0
         double maxProcessLoad = 0.0; // 一次行程中的最大载重
@@ -183,7 +183,7 @@ vector<int> optimizePathForVehicle(
                     maxProcessLoad = 0.0; // 重置过程最大载重
                 } else {
                     // 电量不足以返回，异常情况
-                    std::cerr << "警告: 无人机 #" << vehicle.id << " 无解" << std::endl;
+                    std::cerr << "警告: drone #" << vehicle.id << " 无解" << std::endl;
                     return {}; // 返回空路径表示规划失败
                 }
             }
@@ -198,7 +198,7 @@ vector<int> optimizePathForVehicle(
                 path.push_back(centerId);
             } else {
                 // 电量不足以返回，异常情况
-                std::cerr << "警告: 无人机 #" << vehicle.id << " 电量不足以返回配送中心！" << std::endl;
+                std::cerr << "警告: drone #" << vehicle.id << " 电量不足以返回配送中心！" << std::endl;
                 return {}; // 返回空路径表示规划失败
             }
         }
@@ -309,7 +309,7 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
     for (const auto& vehicle : problem.vehicles) {
         int vehicleId = vehicle.id;
         
-        // 跳过无人机
+        // 跳过drone
         if (vehicle.maxLoad > 0) continue;
         
         // 检查是否有分配的任务
@@ -338,16 +338,16 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
         }
     }
     
-    // 阶段2：规划无人机路径，考虑与车辆协同
+    // 阶段2：规划drone路径，考虑与车辆协同
     for (const auto& drone : problem.vehicles) {
         int droneId = drone.id;
         
-        // 只处理无人机
+        // 只处理drone
         if (drone.maxLoad <= 0) continue;
         
         // 检查是否有分配的任务
         if (vehicleIdToTaskIds.count(droneId) && !vehicleIdToTaskIds[droneId].empty()) {
-            // 使用协同算法规划无人机路径
+            // 使用协同算法规划drone路径
             auto [path, times] = optimizeDronePathWithVehicles(
                 vehicleIdToTaskIds[droneId],
                 problem.tasks,
@@ -532,7 +532,7 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
     return {path, times};
 }
 
-// 考虑车辆协同的无人机路径规划
+// 考虑车辆协同的drone路径规划
 std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
     const std::vector<int>& taskIds,
     const std::vector<TaskPoint>& tasks,
@@ -670,7 +670,7 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
                     double batteryToVisitPoint = distanceToVisitPoint / drone.speed;
                     double arrivalTime = currentTime + batteryNeededToTask + batteryToVisitPoint;
                     
-                    // 如果无人机能到达该点，且在车辆到达前抵达
+                    // 如果drone能到达该点，且在车辆到达前抵达
                     if (batteryNeededToTask + batteryToVisitPoint <= currentBattery && 
                         arrivalTime < info.second) {
                         canReturn = true;
@@ -738,7 +738,7 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
                 // 计算实际可完成返回的时间（需要等待车辆到达）
                 double actualReturnTime = std::max(droneArrivalTime, vehicleArrivalTime);
                 
-                // 如果无人机能到达该点，且能在车辆到达前抵达，且最终返回时间更早
+                // 如果drone能到达该点，且能在车辆到达前抵达，且最终返回时间更早
                 if (batteryNeeded <= currentBattery && 
                     droneArrivalTime < vehicleArrivalTime && 
                     actualReturnTime < minReturnTime) {
@@ -811,7 +811,7 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
             // 计算实际可完成返回的时间（需要等待车辆到达）
             double actualReturnTime = std::max(droneArrivalTime, vehicleArrivalTime);
             
-            // 如果无人机能到达该点，且能在车辆到达前抵达，且最终返回时间更早
+            // 如果drone能到达该点，且能在车辆到达前抵达，且最终返回时间更早
             if (batteryNeeded <= currentBattery && 
                 droneArrivalTime < vehicleArrivalTime && 
                 actualReturnTime < minReturnTime) {
@@ -822,7 +822,9 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
         
         // 如果找到可返回的点
         if (minReturnTime < std::numeric_limits<double>::max()) {
-            path.push_back(bestReturnPoint);
+            //path.push_back(bestReturnPoint);
+            if (bestReturnPoint != drone.centerId) path.push_back(bestReturnPoint + 30000);//协同点
+            else path.push_back(bestReturnPoint);
             
             // 计算返回时间
             double distance = getDistance(currentPos, bestReturnPoint, problem, true);
@@ -836,10 +838,12 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
             if (bestReturnPoint != drone.centerId && taskVisitInfo.count(bestReturnPoint) > 0) {
                 double vehicleArrivalTime = taskVisitInfo.at(bestReturnPoint).second;
                 // 更新到达时间（考虑等待车辆）
+                times.push_back(currentTime + flyingTime);
                 currentTime = std::max(currentTime + flyingTime, vehicleArrivalTime);
             } else {
                 // 直接返回配送中心，不需要等待
                 currentTime += flyingTime;
+                times.push_back(currentTime);
             }
             
             // 在返回点充电和卸货
@@ -848,7 +852,7 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
             maxProcessLoad = 0.0;
             
             // 记录到达时间
-            times.push_back(currentTime);
+            //times.push_back(currentTime);
         } else {
             // 无法找到返回点，规划失败
             return {{drone.centerId, drone.centerId}, {0.0, 0.0}};
@@ -857,7 +861,7 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
     
     // 记录未完成的任务
     if (iterations >= maxIterations) {
-        std::cerr << "警告: 无人机车机协同路径规划达到最大迭代次数，可能存在死循环" << std::endl;
+        std::cerr << "警告: car-drone协同路径规划达到最大迭代次数，可能存在死循环" << std::endl;
     }
     
     return {path, times};
@@ -871,12 +875,12 @@ double calculateTimeNeeded(
     const Vehicle& vehicle,
     const DeliveryProblem& problem,
     bool considerTraffic,  // 是否考虑高峰期
-    bool isDrone)  // 是否是无人机
+    bool isDrone)  // 是否是drone
 {
     // 获取两点之间的距离
     double distance = getDistance(currentId, destId, problem, isDrone);
     
-    // 如果不考虑高峰期或者是无人机，直接计算
+    // 如果不考虑高峰期或者是drone，直接计算
     if (!considerTraffic || isDrone) {
         return distance / vehicle.speed;
     }
