@@ -411,54 +411,13 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
     double currentTime = 0.0;
     
     // 添加最大迭代次数限制
-    int maxIterations = assignedTaskIds.size() * 2;
+    int maxIterations = assignedTaskIds.size() * 3;
     int iterations = 0;
+
     
     // 根据距离选择下一个访问点，直到所有点都被访问
     while (anyTaskUnvisited(visited, assignedTaskIds) && iterations < maxIterations) {
         iterations++;
-        
-        // 检查是否只剩下额外需求点未访问
-        bool onlyExtraDemandLeft = true;
-        double earliestArrivalTime = std::numeric_limits<double>::max();
-        int earliestExtraDemandId = -1;
-        int earliestExtraDemandIndex = -1;//最早额外需求点在assignedTaskIds中的下标，用于visited数组
-        
-        // 查找最早可访问的额外需求点
-        for (size_t i = 0; i < assignedTaskIds.size(); i++) {
-            if (visited[i]) continue;
-            
-            int taskId = assignedTaskIds[i];
-            int taskIndex = problem.taskIdToIndex.at(taskId);
-            const TaskPoint& task = tasks[taskIndex];
-            
-            if (taskIndex < problem.initialDemandCount) {
-                onlyExtraDemandLeft = false;
-                break;
-            } else if (task.arrivaltime < earliestArrivalTime) {
-                earliestArrivalTime = task.arrivaltime;
-                earliestExtraDemandId = taskId;
-                earliestExtraDemandIndex = i;
-            }
-        }
-        
-        // 如果只剩额外需求点未被访问，则等待
-        if (onlyExtraDemandLeft && earliestExtraDemandId != -1) {
-            // 计算从当前位置到最早额外需求点的时间（考虑高峰期）
-            //double distToEarliestDemand = getDistance(currentPos, earliestExtraDemandId, problem, false);
-            //double speedFactor = getSpeedFactor(currentTime, currentPos, earliestExtraDemandId, problem);
-            //double timeToEarliestDemand = distToEarliestDemand / (vehicle.speed * speedFactor);
-            double timeToEarliestDemand = calculateTimeNeeded(currentPos, earliestExtraDemandId, currentTime, vehicle, problem, false, vehicle.maxLoad > 0);
-
-            // 如果当前时间加上行驶时间小于额外需求点的到达时间，则等待
-            if (currentTime + timeToEarliestDemand < earliestArrivalTime) {
-                currentTime = earliestArrivalTime;
-                currentPos = earliestExtraDemandId;
-                path.push_back(currentPos);
-                times.push_back(currentTime);
-                visited[earliestExtraDemandIndex] = true;
-            }
-        }
         
         double minDistance = std::numeric_limits<double>::max();
         int nextIndex = -1;
@@ -480,7 +439,7 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
                 
                 // 添加额外需求点到达时间约束
                 if (taskIndex >= problem.initialDemandCount && 
-                    currentTime + timeToTask < task.arrivaltime) {
+                    currentTime + timeToTask + 0.000001 < task.arrivaltime) {
                     continue; // 额外需求点尚未到达，不能访问
                 }
                 
@@ -508,6 +467,30 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
             
             // 记录到达时间
             times.push_back(currentTime);
+        }
+        else{
+            //找到最早的未完成的额外需求点
+            int earliestExtraDemandId = -1;
+            int earliestExtraDemandIndex = -1;
+            double earliestArrivalTime = std::numeric_limits<double>::max();
+            for (size_t i = 0; i < assignedTaskIds.size(); i++) {
+                if (!visited[i]) {
+                    int taskId = assignedTaskIds[i];
+                    int taskIndex = problem.taskIdToIndex.at(taskId);
+                    const TaskPoint& task = tasks[taskIndex];
+                    
+                    if (taskIndex >= problem.initialDemandCount && task.arrivaltime < earliestArrivalTime) {
+                        earliestArrivalTime = task.arrivaltime;
+                        earliestExtraDemandId = taskId;
+                        earliestExtraDemandIndex = i;
+                    }
+                }
+            }
+            times.push_back(earliestArrivalTime);
+            path.push_back(earliestExtraDemandId);
+            visited[earliestExtraDemandIndex] = true;
+            currentTime = earliestArrivalTime;
+            currentPos = earliestExtraDemandId;
         }
     }
     
