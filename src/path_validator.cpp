@@ -454,4 +454,185 @@ std::pair<bool, std::string> validateDynamicPathLegality(
     return {isValid, errorMessage};
 }
 
-// 其他函数实现稍后添加... 
+// 验证静态阶段是否所有需求点都在路径中且只出现一次
+std::pair<bool, std::string> validateStaticPathCompleteness(
+    const DeliveryProblem& problem,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths)
+{
+    bool isValid = true;
+    string errorMessage = "";
+
+    // 创建所有初始需求点的集合
+    std::unordered_set<int> allDemandPoints;
+    for (int i = 0; i < problem.initialDemandCount; ++i) {
+        allDemandPoints.insert(problem.tasks[i].id);
+    }
+
+    // 记录每个需求点被访问的次数
+    std::unordered_map<int, int> visitCount;
+    
+    // 遍历所有车辆/无人机的路径
+    for (const auto& [vehicleId, pathData] : staticPaths) {
+        const auto& [path, times] = pathData;
+        
+        // 获取Vehicle对象
+        const Vehicle& vehicle = problem.vehicles[problem.vehicleIdToIndex.at(vehicleId)];
+        bool isDrone = (vehicle.maxLoad > 0);
+        
+        // 遍历路径上的每个点
+        for (int pointId : path) {
+            // 跳过配送中心
+            if (problem.centerIds.count(pointId) > 0) {
+                continue;
+            }
+            
+            // 增加该点的访问次数
+            visitCount[pointId]++;
+        }
+    }
+    
+    // 检查是否所有需求点都被访问且只访问一次
+    for (int taskId : allDemandPoints) {
+        if (visitCount[taskId] == 0) {
+            errorMessage += "错误: 静态阶段需求点 " + std::to_string(taskId) + " 未被任何车辆访问\n";
+            isValid = false;
+        } else if (visitCount[taskId] > 1) {
+            errorMessage += "错误: 静态阶段需求点 " + std::to_string(taskId) + " 被访问了 " + 
+                           std::to_string(visitCount[taskId]) + " 次\n";
+            isValid = false;
+        }
+    }
+
+    return {isValid, errorMessage};
+}
+
+// 验证动态阶段是否所有需求点(包括额外需求点)都在路径中且只出现一次
+std::pair<bool, std::string> validateDynamicPathCompleteness(
+    const DeliveryProblem& problem,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths)
+{
+    bool isValid = true;
+    string errorMessage = "";
+
+    // 创建所有需求点的集合（包括初始和额外需求点）
+    std::unordered_set<int> allDemandPoints;
+    for (int i = 0; i < problem.tasks.size(); ++i) {
+        allDemandPoints.insert(problem.tasks[i].id);
+    }
+
+    // 记录每个需求点被访问的次数
+    std::unordered_map<int, int> visitCount;
+    
+    // 遍历所有车辆/无人机的路径
+    for (const auto& [vehicleId, pathData] : dynamicPaths) {
+        const auto& [path, times] = pathData;
+        
+        // 获取Vehicle对象
+        const Vehicle& vehicle = problem.vehicles[problem.vehicleIdToIndex.at(vehicleId)];
+        bool isDrone = (vehicle.maxLoad > 0);
+        
+        // 遍历路径上的每个点
+        for (int pointId : path) {
+            // 跳过配送中心
+            if (problem.centerIds.count(pointId) > 0) {
+                continue;
+            }
+            
+            // 跳过车机协同点(ID >= 30000)
+            if (pointId >= 30000) {
+                continue;
+            }
+            
+            // 增加该点的访问次数
+            visitCount[pointId]++;
+        }
+    }
+    
+    // 检查是否所有需求点都被访问且只访问一次
+    for (int taskId : allDemandPoints) {
+        if (visitCount[taskId] == 0) {
+            errorMessage += "错误: 动态阶段需求点 " + std::to_string(taskId) + " 未被任何车辆访问\n";
+            isValid = false;
+        } else if (visitCount[taskId] > 1) {
+            errorMessage += "错误: 动态阶段需求点 " + std::to_string(taskId) + " 被访问了 " + 
+                           std::to_string(visitCount[taskId]) + " 次\n";
+            isValid = false;
+        }
+    }
+
+    return {isValid, errorMessage};
+}
+
+// 主验证函数，调用所有验证函数
+std::pair<bool, std::string> validateAllPaths(
+    const DeliveryProblem& problem,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths,
+    double staticMaxTime,
+    const std::vector<int>& extraTaskIds)
+{
+    bool isValid = true;
+    string errorMessage = "";
+    
+    // 验证静态阶段车辆配送中心
+    bool centerValid = validateStaticVehicleCenter(problem, staticPaths);
+    if (!centerValid) {
+        errorMessage += "静态阶段车辆配送中心验证失败\n";
+        std::cout << "静态阶段车辆配送中心验证失败" << std::endl;
+        isValid = false;
+    } else {
+        std::cout << "静态阶段车辆配送中心验证通过" << std::endl;
+    }
+    
+    // 验证静态阶段路径完整性
+    auto [staticCompletenessValid, staticCompletenessError] = validateStaticPathCompleteness(problem, staticPaths);
+    if (!staticCompletenessValid) {
+        errorMessage += "静态阶段路径完整性验证失败：";
+        std::cout << "静态阶段路径完整性验证失败：" << std::endl << staticCompletenessError;
+        isValid = false;
+    } else {
+        std::cout << "静态阶段路径完整性验证通过" << std::endl;
+    }
+    
+    // 验证静态阶段路径合法性
+    auto [staticLegalityValid, staticLegalityError] = validateStaticPathLegality(problem, staticPaths);
+    if (!staticLegalityValid) {
+        errorMessage += "静态阶段路径合法性验证失败：";
+        std::cout << "静态阶段路径合法性验证失败：" << std::endl << staticLegalityError;
+        isValid = false;
+    } else {
+        std::cout << "静态阶段路径合法性验证通过" << std::endl;
+    }
+    
+    // 验证动态阶段车辆配送中心
+    bool dynamicCenterValid = validateDynamicVehicleCenter(problem, staticPaths, dynamicPaths, staticMaxTime);
+    if (!dynamicCenterValid) {
+        errorMessage += "动态阶段车辆配送中心验证失败：";
+        std::cout << "动态阶段车辆配送中心验证失败" << std::endl;
+        isValid = false;
+    } else {
+        std::cout << "动态阶段车辆配送中心验证通过" << std::endl;
+    }
+    
+    // 验证动态阶段路径完整性
+    auto [dynamicCompletenessValid, dynamicCompletenessError] = validateDynamicPathCompleteness(problem, dynamicPaths);
+    if (!dynamicCompletenessValid) {
+        errorMessage += "动态阶段路径完整性验证失败：";
+        std::cout << "动态阶段路径完整性验证失败：" << std::endl << dynamicCompletenessError;
+        isValid = false;
+    } else {
+        std::cout << "动态阶段路径完整性验证通过" << std::endl;
+    }
+    
+    // 验证动态阶段路径合法性
+    auto [dynamicLegalityValid, dynamicLegalityError] = validateDynamicPathLegality(problem, dynamicPaths, extraTaskIds);
+    if (!dynamicLegalityValid) {
+        errorMessage += "动态阶段路径合法性验证失败：";
+        std::cout << "动态阶段路径合法性验证失败：" << std::endl << dynamicLegalityError;
+        isValid = false;
+    } else {
+        std::cout << "动态阶段路径合法性验证通过" << std::endl;
+    }
+    
+    return {isValid, errorMessage};
+}

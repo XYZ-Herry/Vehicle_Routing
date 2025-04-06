@@ -30,4 +30,20 @@ std::pair<bool, std::string> validateDynamicPathLegality(
     const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths,
     const std::vector<int>& extraTaskIds);
 
+std::pair<bool, std::string> validateStaticPathCompleteness(
+    const DeliveryProblem& problem,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths);
+
+std::pair<bool, std::string> validateDynamicPathCompleteness(
+    const DeliveryProblem& problem,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths);
+
+// 主验证函数
+std::pair<bool, std::string> validateAllPaths(
+    const DeliveryProblem& problem,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& staticPaths,
+    const std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>>& dynamicPaths,
+    double staticMaxTime,
+    const std::vector<int>& extraTaskIds);
+
 #endif // PATH_VALIDATOR_H 
