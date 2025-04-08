@@ -13,6 +13,9 @@ using std::endl;
 using std::string;
 using std::unordered_map;
 
+double droneSpeed, vehicleSpeed, droneCost, vehicleCost, droneMaxLoad, timeWeight;
+double droneMaxFuel;
+
 // 从文件加载问题数据
 bool loadProblemData(const string &filename, DeliveryProblem &problem)
 {
@@ -32,10 +35,10 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         problem.extraDemandCount = extraDemandCount;
 
         // 读取车辆和无人机的参数
-        double droneSpeed, vehicleSpeed, droneCost, vehicleCost, droneMaxLoad, timeWeight;
+        //double droneSpeed, vehicleSpeed, droneCost, vehicleCost, droneMaxLoad, timeWeight;
         file >> droneSpeed >> vehicleSpeed >> droneCost >> vehicleCost >> droneMaxLoad >> timeWeight;
         problem.timeWeight = timeWeight;
-
+        droneMaxFuel = DeliveryProblem::DEFAULT_DRONE_FUEL;
         // 读取路网信息
         int edgeCount;
         file >> edgeCount;
@@ -52,7 +55,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             length /= 1000.0;
             
             
-            problem.network.edges[i] = {node1, node2, length, DeliveryProblem::DEFAULT_MORNING_PEAK_FACTOR, DeliveryProblem::DEFAULT_EVENING_PEAK_FACTOR};
+            problem.network.edges[i] = {node1, node2, length};
             problem.network.distances[node1][node2] = length;
             problem.network.distances[node2][node1] = length;
             
@@ -111,6 +114,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
                     id //这里的id是配送中心ID
                 });
                 problem.centers[i].vehicles.push_back(vehicleIdCounter); // 记录配送中心索引i内的车辆ID
+                problem.allCarIds.push_back(vehicleIdCounter);
                 vehicleIdCounter++;
             }
         }
@@ -136,11 +140,12 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
                     vehicleIdCounter,
                     droneSpeed,
                     droneCost,
-                    DeliveryProblem::DEFAULT_DRONE_LOAD,
-                    DeliveryProblem::DEFAULT_DRONE_FUEL,
+                    droneMaxLoad,
+                    droneMaxFuel,
                     id
                 });
                 problem.centers[vehicleCenterCount + i].vehicles.push_back(vehicleIdCounter); // 记录无人机ID
+                problem.allDroneIds.push_back(vehicleIdCounter);
                 vehicleIdCounter++;
             }
         }
@@ -322,9 +327,9 @@ void printInitialInfo(const DeliveryProblem& problem) {
     for (const auto& center : problem.centers) {
         // 确定配送中心类型
         std::string centerType;
-        if (center.vehicleCount > 0 && center.droneCount > 0) {
+        if (center.carCount > 0 && center.droneCount > 0) {
             centerType = "混合配送中心";
-        } else if (center.vehicleCount > 0) {
+        } else if (center.carCount > 0) {
             centerType = "Car配送中心";
         } else if (center.droneCount > 0) {
             centerType = "Drone配送中心";

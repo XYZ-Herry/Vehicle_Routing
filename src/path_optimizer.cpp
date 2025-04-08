@@ -39,8 +39,13 @@ vector<int> optimizePathForVehicle(
         path.push_back(centerId);
         int currentPos = centerId;
         
+        const int MAX_ITERATIONS = 1000; // 设置合理的最大迭代次数
+        int iteration = 0;
+        
         // 根据距离选择下一个访问点，直到所有点都被访问
-        while (anyTaskUnvisited(visited, assignedTaskIds)) {
+        while (anyTaskUnvisited(visited, assignedTaskIds) && iteration < MAX_ITERATIONS) {
+            iteration++;
+            
             double minDistance = std::numeric_limits<double>::max();
             int nextIndex = -1;
             int nextId = -1;
@@ -75,6 +80,10 @@ vector<int> optimizePathForVehicle(
         // 回到配送中心
         path.push_back(centerId);
         
+        if (iteration >= MAX_ITERATIONS) {
+            std::cout << "警告：静态阶段车辆路径优化达到最大迭代次数，ID: " << vehicle.id << std::endl;
+        }
+        
         return path;
     } else {
         // drone路径规划，考虑电量和载重约束
@@ -90,8 +99,12 @@ vector<int> optimizePathForVehicle(
         double currentLoad = 0.0; // 初始载重为0
         double maxProcessLoad = 0.0; // 一次行程中的最大载重
         
+        const int MAX_ITERATIONS = 1000; // 设置合理的最大迭代次数
+        int iteration = 0;
+        
         // 当还有未访问的任务点时继续循环
-        while (anyTaskUnvisited(visited, assignedTaskIds)) {
+        while (anyTaskUnvisited(visited, assignedTaskIds) && iteration < MAX_ITERATIONS) {
+            iteration++;
             double minDistance = std::numeric_limits<double>::max();
             int nextIndex = -1;
             int nextId = -1;
@@ -184,7 +197,7 @@ vector<int> optimizePathForVehicle(
                 } else {
                     // 电量不足以返回，异常情况
                     std::cerr << "警告: drone #" << vehicle.id << " 无解" << std::endl;
-                    return {}; // 返回空路径表示规划失败
+                    return {vehicle.centerId, vehicle.centerId}; // 返回空路径表示规划失败
                 }
             }
         }
@@ -199,8 +212,13 @@ vector<int> optimizePathForVehicle(
             } else {
                 // 电量不足以返回，异常情况
                 std::cerr << "警告: drone #" << vehicle.id << " 电量不足以返回配送中心！" << std::endl;
-                return {}; // 返回空路径表示规划失败
+                return {vehicle.centerId, vehicle.centerId}; // 返回空路径表示规划失败
             }
+        }
+        
+        if (iteration >= MAX_ITERATIONS) {
+            //std::cout << "警告：静态阶段无人机路径优化达到最大迭代次数，ID: " << vehicle.id << std::endl;
+            return {vehicle.centerId, vehicle.centerId}; // 返回空路径表示规划失败
         }
         
         return path;
@@ -251,8 +269,8 @@ vector<double> calculateCompletionTimes(
     const DeliveryProblem& problem,
     bool considerTraffic)
 {
-    if (path.empty()) {
-        return {};
+    if (path.size() <= 2) {
+        return {0.0, 0.0};
     }
     
     vector<double> completionTimes(path.size(), 0.0);
@@ -356,7 +374,7 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
                 taskVisitInfo
             );
             
-            if (!path.empty()) {
+            if (path.size() > 2) {
                 // 直接使用返回的时间而不重新计算
                 dynamicPaths[droneId] = {path, times};
             } else {
@@ -368,7 +386,7 @@ std::unordered_map<int, std::pair<std::vector<int>, std::vector<double>>> optimi
                     problem
                 );
                 
-                if (!path.empty()) {
+                if (path.size() > 2) {
                     std::vector<double> times = calculateCompletionTimes(
                         path, problem.tasks, drone, problem, false
                     );
@@ -676,19 +694,21 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
                         }
                     }
                 }
-                if (earliestExtraDemandId != -1) {//有额外需求点可以返回
-                    //double timeToEarliestDemand = calculateTimeNeeded(currentPos, earliestExtraDemandId, currentTime, drone, problem, false, drone.maxLoad > 0);
+                if (earliestExtraDemandId != -1) {
                     double distanceToEarliestDemand = getDistance(currentPos, earliestExtraDemandId, problem, true);
                     double timeToEarliestDemand = distanceToEarliestDemand / drone.speed;
-                    currentTime = earliestArrivalTime - timeToEarliestDemand;
-
                     const TaskPoint& task = tasks[earliestExtraDemandIndex];
-                    // 如果约束不满足，标记为已访问
+                    
                     if (timeToEarliestDemand > currentBattery || currentLoad + task.pickweight > drone.maxLoad) {
-                        std::cout << "电量或载重约束不满足，跳过该任务点" << std::endl;
-                        visited[earliestExtraDemandIndex] = true;
+                        // std::cout << "电量或载重约束不满足，跳过该任务点 " << earliestExtraDemandId 
+                        //          << " (电量需求: " << timeToEarliestDemand << "/" << currentBattery 
+                        //          << ", 载重需求: " << (currentLoad + task.pickweight) << "/" << drone.maxLoad << ")" << std::endl;
+                        //visited[earliestExtraDemandIndex] = true;
+                        continue;
                     }
-                    //if (iterations == maxIterations - 1) std::cout << "?" << timeToEarliestDemand;
+                    
+                    currentTime = earliestArrivalTime - timeToEarliestDemand;
+                    //std::cout << "调整时间到 " << currentTime << " 以访问任务点 " << earliestExtraDemandId << std::endl;
                 }
                 else {
                     std::cout << "出错了，没点可以返回了" << std::endl;
@@ -843,7 +863,8 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
     
     // 记录未完成的任务
     if (iterations >= maxIterations) {
-        std::cerr << "警告: car-drone协同路径规划达到最大迭代次数，可能存在死循环" << std::endl;
+        //std::cerr << "警告: car-drone协同路径规划达到最大迭代次数，可能存在死循环" << std::endl;
+        return {{drone.centerId, drone.centerId}, {0.0, 0.0}};
     }
     
     return {path, times};

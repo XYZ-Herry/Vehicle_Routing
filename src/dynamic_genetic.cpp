@@ -63,8 +63,10 @@ double calculateDynamicFitness(
     
     for (const auto& [vehicleId, pathData] : optimizedPaths) {
         const auto& [path, completionTimes] = pathData;
-        if (path.size() <= 2) continue;  // 跳过没有任务的路径
-        
+        if (path.size() <= 2){
+            totalCost += 1000000;
+            continue; // 跳过没有任务的路径
+        }
         // 计算真实任务数量并追踪初始任务
         int realTaskCount = 0;
         for (size_t i = 1; i < path.size() - 1; i++) {  // 跳过首尾配送中心
@@ -184,13 +186,17 @@ vector<pair<int, int>> dynamicGeneticAlgorithm(
         
         vector<int> solution(allTaskIds.size());  // 存储车辆ID
         
-        // 为每个任务分配车辆
+        // 为每个任务分配设施
         for (size_t i = 0; i < allTaskIds.size(); ++i) {
             int taskId = allTaskIds[i];
             
             if (flexibleTasks.count(taskId)) {
-                // 延迟和新任务可以分配给任何车辆，使用随机车辆ID
-                solution[i] = allVehicleIds[rand() % allVehicleIds.size()];
+                // 延迟和新任务可以分配给任何设施，使用随机设施ID
+                if (population.size() < populationSize/2){
+                    // 前一半种群随机分配给车辆,防止出现无人机分配无解的情况
+                    solution[i] = problem.allCarIds[rand() % problem.allCarIds.size()];
+                }
+                else solution[i] = allVehicleIds[rand() % allVehicleIds.size()];
             } else {
                 // 静态任务保持原有分配，使用车辆ID
                 solution[i] = staticTaskInfo[taskId].vehicleId;

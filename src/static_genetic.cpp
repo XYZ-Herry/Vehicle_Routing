@@ -29,6 +29,13 @@ double calculateFitness(
     const DeliveryProblem& problem,
     double timeWeight)
 {
+    static int callCount = 0;
+    callCount++;
+
+    // 每1000次调用输出一次状态
+    if (callCount % 1000 == 0) {
+        std::cout << "静态阶段适应度计算次数: " << callCount << std::endl;
+    }
     double maxCompletionTime = 0.0;
     double totalCost = 0.0;
     unordered_map<int, vector<int>> vehicleAssignments;  // 车辆ID -> 任务ID列表
@@ -53,7 +60,7 @@ double calculateFitness(
             vehicle,
             problem);
         
-        if (path.empty()) {
+        if (path.size() <= 2) {
             return numeric_limits<double>::max();
         }
         
@@ -136,6 +143,7 @@ vector<pair<int, int>> Static_GeneticAlgorithm(
                 population.push_back(solution);
             }
             attempts++;
+            //std::cout << "尝试次数: " << attempts << std::endl;
         }
 
         // 如果无法找到足够的可行解，跳过这个配送中心

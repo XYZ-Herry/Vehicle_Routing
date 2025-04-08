@@ -22,7 +22,7 @@ bool validateStaticVehicleCenter(
     for (const auto& [vehicleId, pathData] : staticPaths) {
         const auto& [path, times] = pathData;
         
-        if (path.empty()) continue;
+        if (path.size() <= 2) continue;
         
         // 获取Vehicle对象
         const Vehicle& vehicle = problem.vehicles[problem.vehicleIdToIndex.at(vehicleId)];
@@ -63,7 +63,7 @@ bool validateDynamicVehicleCenter(
         const auto& [path, times] = pathData;
         
         // 跳过空路径
-        if (path.empty() || times.empty()) continue;
+        if (path.size() <= 2 || times.size() <= 2) continue;
         
         // 获取Vehicle对象
         const Vehicle& vehicle = problem.vehicles[problem.vehicleIdToIndex.at(vehicleId)];
@@ -84,7 +84,7 @@ bool validateDynamicVehicleCenter(
         const auto& [path, times] = pathData;
         
         // 跳过空路径
-        if (path.empty()) continue;
+        if (path.size() <= 2 || times.size() <= 2) continue;
         
         // 遍历路径中的每个任务点
         for (size_t i = 0; i < path.size(); ++i) {
@@ -131,7 +131,7 @@ std::pair<bool, std::string> validateStaticPathLegality(
         const auto& [path, reportedTimes] = pathData;
         
         // 跳过空路径
-        if (path.empty() || path.size() < 2) continue;
+        if (path.size() < 2) continue;
         
         // 获取Vehicle对象
         const Vehicle& vehicle = problem.vehicles[problem.vehicleIdToIndex.at(vehicleId)];
@@ -279,7 +279,7 @@ std::pair<bool, std::string> validateDynamicPathLegality(
         const auto& [path, reportedTimes] = pathData;
         
         // 跳过空路径
-        if (path.empty()) continue;
+        if (path.size() <= 2 || reportedTimes.size() <= 2) continue;
         
         // 获取Vehicle对象
         int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
@@ -302,7 +302,7 @@ std::pair<bool, std::string> validateDynamicPathLegality(
         const auto& [path, reportedTimes] = pathData;
         
         // 跳过空路径
-        if (path.empty()) continue;
+        if (path.size() <= 2 || reportedTimes.size() <= 2) continue;
         
         // 获取Vehicle对象
         int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);

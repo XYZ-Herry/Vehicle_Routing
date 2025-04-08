@@ -55,7 +55,7 @@ struct DistributionCenter
 {
     int id;                     // 配送中心ID
     double x, y;                // 配送中心坐标
-    int vehicleCount;           // 普通车辆数量
+    int carCount;           // 普通车辆数量
     int droneCount;             // 无人机数量
     std::vector<int> vehicles;  // 所属车辆/无人机的ID列表
 };
@@ -66,8 +66,6 @@ struct Edge
     int node1;                  // 起点ID
     int node2;                  // 终点ID
     double length;              // 边长度
-    double morningPeakFactor;   // 早高峰速度系数（7:00-9:00）
-    double eveningPeakFactor;   // 晚高峰速度系数（17:00-18:00）
 };
 
 // 路网信息
@@ -85,7 +83,6 @@ struct DeliveryProblem
 {
     // 已有的默认值定义
     static constexpr double DEFAULT_DRONE_FUEL = 1.0;      // 默认无人机电池容量（小时）
-    static constexpr double DEFAULT_DRONE_LOAD = 10.0;     // 默认无人机最大载重（千克）
     static constexpr int DEFAULT_CENTER_ID = -1;           // 默认配送中心ID
     
     // 送货取货相关默认值
@@ -133,6 +130,8 @@ struct DeliveryProblem
     
     // 所有配送中心ID的集合
     std::unordered_set<int> centerIds;
+    std::vector<int> allCarIds;
+    std::vector<int> allDroneIds;
 };
 
 // 工具函数声明
@@ -145,8 +144,8 @@ inline bool isDroneCenter(const DistributionCenter& center) {
     return center.droneCount > 0;
 }
 
-inline bool isVehicleCenter(const DistributionCenter& center) {
-    return center.vehicleCount > 0;
+inline bool isCarCenter(const DistributionCenter& center) {
+    return center.carCount > 0;
 }
 
 // 输出配送结果

@@ -129,10 +129,6 @@ for node in UAV_start_nodes:
 for demand in additional_demand_weighted:
     output_data_weighted.append(f"{int(demand[0])} {demand[1]} {demand[2]} {demand[3]}")
 
-# 输出点与点之间的高峰期车辆速度降低的系数
-# 对于任意两点的早晚都随机生成0.2-1.0之间的系数
-
-
 # 保存结果到更新后的文件
 output_file_path_weighted = "output_data_weighted.txt"
 with open(output_file_path_weighted, 'w') as f:

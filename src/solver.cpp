@@ -76,7 +76,8 @@ pair<double, double> calculateTotalTimeAndCost(
         const auto& [path, times] = pathData;
         
         // 跳过空路径
-        if (path.empty() || times.empty()) {
+        if (path.size() <= 2 || times.size() <= 2) {
+            totalCost += 1000000;
             continue;
         }
         
@@ -202,7 +203,7 @@ void identifyTasksForRescheduling(
     // 检查每个车辆的路径，找出在高峰期会延迟的任务
     for (const auto& [vehicleId, pair] : staticPaths) {
         const auto& [path, staticTimes] = pair;
-        if (path.empty()) continue;
+        if (path.size() <= 2) continue;
         
         // 获取车辆信息
         int vehicleIndex = problem.vehicleIdToIndex.at(vehicleId);
