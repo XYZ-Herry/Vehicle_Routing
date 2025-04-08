@@ -81,7 +81,12 @@ vector<int> optimizePathForVehicle(
         path.push_back(centerId);
         
         if (iteration >= MAX_ITERATIONS) {
-            std::cout << "警告：静态阶段车辆路径优化达到最大迭代次数，ID: " << vehicle.id << std::endl;
+            static int warningCount = 0;
+            if (warningCount < 10) {
+                std::cerr << "警告：静态阶段车辆路径优化达到最大迭代次数，ID: " << vehicle.id << std::endl;
+                warningCount++;
+                return {vehicle.centerId, vehicle.centerId};
+            }
         }
         
         return path;
@@ -217,7 +222,11 @@ vector<int> optimizePathForVehicle(
         }
         
         if (iteration >= MAX_ITERATIONS) {
-            //std::cout << "警告：静态阶段无人机路径优化达到最大迭代次数，ID: " << vehicle.id << std::endl;
+            static int warningCount = 0;
+            if (warningCount < 10) {
+                std::cerr << "警告：静态阶段无人机路径优化达到最大迭代次数，ID: " << vehicle.id << std::endl;
+                warningCount++;
+            }
             return {vehicle.centerId, vehicle.centerId}; // 返回空路径表示规划失败
         }
         
@@ -527,11 +536,17 @@ std::pair<std::vector<int>, std::vector<double>> Dynamic_OptimizePathForVehicle(
     
     // 记录未完成的任务
     if (iterations >= maxIterations) {
-        std::cerr << "警告: 车辆路径规划达到最大迭代次数，可能存在死循环" << std::endl;
+        static int warningCount = 0;
+        if (warningCount < 10) {
+            std::cerr << "警告: 动态阶段车辆路径规划达到最大迭代次数，可能存在死循环" << std::endl;
+            warningCount++;
+        }
+        return {{vehicle.centerId, vehicle.centerId}, {0.0, 0.0}};
     }
     
     return {path, times};
 }
+
 
 // 考虑车辆协同的drone路径规划
 std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
@@ -863,7 +878,11 @@ std::pair<std::vector<int>, std::vector<double>> optimizeDronePathWithVehicles(
     
     // 记录未完成的任务
     if (iterations >= maxIterations) {
-        //std::cerr << "警告: car-drone协同路径规划达到最大迭代次数，可能存在死循环" << std::endl;
+        static int warningCount = 0;
+        if (warningCount < 10) {
+            std::cerr << "警告: 动态阶段车机协同路径规划达到最大迭代次数，可能存在死循环" << std::endl;
+            warningCount++;
+        }
         return {{drone.centerId, drone.centerId}, {0.0, 0.0}};
     }
     

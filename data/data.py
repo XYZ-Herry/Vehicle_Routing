@@ -13,6 +13,7 @@ parser.add_argument("-cu", type=float, default=0.84, help="无人机运送货物
 parser.add_argument("-cc", type=float, default=0.62, help="货车运送货物的成本 (默认 0.62)")
 parser.add_argument("-om", type=float, default=0.1, help="配送时间权重 (默认 0.1)")
 parser.add_argument("-qu", type=int, default=20, help="无人机最大载重 (默认 20)")
+parser.add_argument("-fu", type=float, default=2.0, help="无人机最大电量 (默认 2.0)")
 
 # 解析命令行参数
 args = parser.parse_args()
@@ -24,7 +25,8 @@ params = {
     "cu": args.cu,  # 无人机运送货物的成本
     "cc": args.cc,  # 货车运送货物的成本
     "om": args.om,  # 配送时间权重
-    "qu": args.qu   # 无人机最大载重
+    "qu": args.qu,  # 无人机最大载重
+    "fu": args.fu   # 无人机最大电量
 }
 
 # 帮助函数：如果有-help参数，显示参数说明
@@ -39,7 +41,8 @@ def print_help():
     7. 无人机运送货物的成本 (cu): 无人机运送货物的单位成本。
     8. 货车运送货物的成本 (cc): 货车运送货物的单位成本。
     9. 无人机最大载重 (qu): 无人机的最大载重。
-    10. 配送时间权重 (om): 配送时间对整体成本的影响权重。
+    10. 无人机最大电量 (fu): 无人机的最大电量。
+    11. 配送时间权重 (om): 配送时间对整体成本的影响权重。
     """)
 
 # 读取数据
@@ -86,10 +89,13 @@ additional_demand_weighted = []
 for node_idx in selected_additional_nodes_weighted:
     demand_node = require_nodes.iloc[node_idx]
     task_time = random.randint(1, 1440)  # 任务生成时间
-    additional_demand_weighted.append([demand_node['序号'], demand_node['X'], demand_node['Y坐标'], task_time])
+    # 随机生成取货重量和送货重量
+    pickup_weight = round(random.uniform(1, 5), 2)  # 取货重量，1-10kg
+    delivery_weight = round(random.uniform(1, 5), 2)  # 送货重量，1-10kg
+    additional_demand_weighted.append([demand_node['序号'], demand_node['X'], demand_node['Y坐标'], pickup_weight, delivery_weight, task_time])
 
 # 对额外需求按任务生成时间排序
-additional_demand_weighted.sort(key=lambda x: x[3])
+additional_demand_weighted.sort(key=lambda x: x[5])
 
 # 生成输出文件内容
 output_data_weighted = []
@@ -97,8 +103,8 @@ output_data_weighted = []
 # 第一行：default_require_num Additional demand num car_num UAV_num
 output_data_weighted.append(f"{default_require_num} {additional_demand_num} {car_num} {UAV_num}")
 
-# 第二行：无人机速度 车辆速度 无人机运送货物的成本 货车运送货物的成本 无人机最大载重 配送时间权重
-output_data_weighted.append(f"{params['vu']} {params['vc']} {params['cu']} {params['cc']} {params['qu']} {params['om']}")
+# 第二行：无人机速度 车辆速度 无人机运送货物的成本 货车运送货物的成本 无人机最大载重 无人机电量 配送时间权重
+output_data_weighted.append(f"{params['vu']} {params['vc']} {params['cu']} {params['cc']} {params['qu']} {params['fu']} {params['om']}")
 
 # 第三行：边的数量 road_num
 output_data_weighted.append(str(len(all_edges_df)))
@@ -110,8 +116,11 @@ for _, row in all_edges_df.iterrows():
 # 输出default_require_num个需求
 for node_idx in selected_require_nodes_weighted:
     demand_node = require_nodes.iloc[node_idx]
+    # 随机生成取货重量和送货重量
+    pickup_weight = round(random.uniform(1, 5), 2)  # 取货重量，1-10kg
+    delivery_weight = round(random.uniform(1, 5), 2)  # 送货重量，1-10kg
     # 保证序号为整数输出
-    output_data_weighted.append(f"{int(demand_node['序号'])} {demand_node['X']} {demand_node['Y坐标']}")
+    output_data_weighted.append(f"{int(demand_node['序号'])} {demand_node['X']} {demand_node['Y坐标']} {pickup_weight} {delivery_weight}")
 
 # 输出车辆起始位置（包含坐标）并附加随机数
 for node in car_start_nodes:
@@ -127,7 +136,7 @@ for node in UAV_start_nodes:
 
 # 输出额外需求信息
 for demand in additional_demand_weighted:
-    output_data_weighted.append(f"{int(demand[0])} {demand[1]} {demand[2]} {demand[3]}")
+    output_data_weighted.append(f"{int(demand[0])} {demand[1]} {demand[2]} {demand[3]} {demand[4]} {demand[5]}")
 
 # 输出点与点之间的高峰期车辆速度降低的系数
 # 对于任意两点的早晚都随机生成0.2-1.0之间的系数

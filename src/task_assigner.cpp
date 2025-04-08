@@ -15,7 +15,7 @@ using std::numeric_limits;
 
 extern double droneMaxFuel;
 extern double droneSpeed;
-extern double vehicleSpeed;
+extern double carSpeed;
 
 // 将任务点分配给最近的配送中心
 void assignTasksToCenters(DeliveryProblem& problem) {
@@ -29,7 +29,7 @@ void assignTasksToCenters(DeliveryProblem& problem) {
         for (const auto& center : problem.centers) {
             // 使用ID计算任务点到配送中心的实际距离（不是欧式距离）
             double distance = getDistance(task.id, center.id, problem, isDroneCenter(center));
-            double cost_time = distance / (isDroneCenter(center) ? droneSpeed : vehicleSpeed);
+            double cost_time = distance / (isDroneCenter(center) ? droneSpeed : carSpeed);
             //如果该距离更短并且该中心如果是无人机配送中心且无人机可以抵达
             if (cost_time < minCostTime && (isCarCenter(center) || (isDroneCenter(center) && droneMaxFuel >= 2 * cost_time))) {
             //if (distance < minDistance) {

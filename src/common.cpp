@@ -13,8 +13,7 @@ using std::endl;
 using std::string;
 using std::unordered_map;
 
-double droneSpeed, vehicleSpeed, droneCost, vehicleCost, droneMaxLoad, timeWeight;
-double droneMaxFuel;
+double droneSpeed, carSpeed, droneCost, vehicleCost, droneMaxLoad, droneMaxFuel, timeWeight;
 
 // 从文件加载问题数据
 bool loadProblemData(const string &filename, DeliveryProblem &problem)
@@ -22,7 +21,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
     ifstream file(filename);
     if (!file.is_open())
     {
-        cout << "无法打开文件: " << filename << endl;
+        std::cerr << "无法打开文件: " << filename << std::endl;
         return false;
     }
 
@@ -35,8 +34,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         problem.extraDemandCount = extraDemandCount;
 
         // 读取车辆和无人机的参数
-        //double droneSpeed, vehicleSpeed, droneCost, vehicleCost, droneMaxLoad, timeWeight;
-        file >> droneSpeed >> vehicleSpeed >> droneCost >> vehicleCost >> droneMaxLoad >> timeWeight;
+        file >> droneSpeed >> carSpeed >> droneCost >> vehicleCost >> droneMaxLoad >> droneMaxFuel >> timeWeight;
         problem.timeWeight = timeWeight;
         droneMaxFuel = DeliveryProblem::DEFAULT_DRONE_FUEL;
         // 读取路网信息
@@ -74,14 +72,14 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         for (int i = 0; i < initialDemandCount; ++i)
         {
             int id;
-            double latitude, longitude;
-            file >> id >> longitude >> latitude;
+            double latitude, longitude, pickup_weight, delivery_weight;
+            file >> id >> longitude >> latitude >> pickup_weight >> delivery_weight;
             auto [x, y] = convertLatLongToXY(latitude, longitude);
             problem.tasks[i] = {
                 id, x, y, 0.0,    
                 DeliveryProblem::DEFAULT_CENTER_ID,
-                DeliveryProblem::DEFAULT_PICKUP_WEIGHT,
-                DeliveryProblem::DEFAULT_DELIVERY_WEIGHT
+                pickup_weight,
+                delivery_weight
             };
             problem.coordinates[id] = {x, y};  // 存储坐标映射
         }
@@ -107,7 +105,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             {
                 problem.vehicles.push_back({
                     vehicleIdCounter,//车辆ID
-                    vehicleSpeed,
+                    carSpeed,
                     vehicleCost,
                     0.0,    // maxLoad=0表示普通车辆
                     0.0,    // 普通车辆无燃料限制
@@ -154,8 +152,8 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
         for (int i = 0; i < extraDemandCount; ++i)
         {
             int id;
-            double latitude, longitude, arrivaltime;
-            file >> id >> longitude >> latitude >> arrivaltime;
+            double latitude, longitude, pickup_weight, delivery_weight, arrivaltime;
+            file >> id >> longitude >> latitude >> pickup_weight >> delivery_weight >> arrivaltime;
             arrivaltime = arrivaltime / 60.0;//将分钟转换为小时
             auto [x, y] = convertLatLongToXY(latitude, longitude);
             
@@ -165,8 +163,8 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             problem.tasks[initialDemandCount + i] = {
                 uniqueId, x, y, arrivaltime,
                 DeliveryProblem::DEFAULT_CENTER_ID,
-                DeliveryProblem::DEFAULT_PICKUP_WEIGHT,
-                DeliveryProblem::DEFAULT_DELIVERY_WEIGHT
+                pickup_weight,
+                delivery_weight
             };
             problem.coordinates[uniqueId] = {x, y};  // 存储坐标映射
         }
@@ -200,7 +198,7 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
     }
     catch (const std::exception &e)
     {
-        cout << "读取文件时发生错误: " << e.what() << endl;
+        std::cerr << "读取文件时发生错误: " << e.what() << std::endl;
         return false;
     }
 }
@@ -296,20 +294,8 @@ std::pair<double, double> convertLatLongToXY(double latitude, double longitude) 
 void printInitialInfo(const DeliveryProblem& problem) {
     std::cout << "========== 初始阶段信息 ==========" << std::endl;
     
-    // 查找车辆和无人机的速度、载重和电量
-    double vehicleSpeed = 0.0, droneSpeed = 0.0, droneMaxLoad = 0.0, droneMaxFuel = 0.0;
-    for (const auto& vehicle : problem.vehicles) {
-        if (vehicle.maxLoad > 0) { // 无人机
-            droneSpeed = vehicle.speed;
-            droneMaxLoad = vehicle.maxLoad;
-            droneMaxFuel = vehicle.maxfuel;
-        } else { // 普通车辆
-            vehicleSpeed = vehicle.speed;
-        }
-    }
-    
     // 输出基本参数
-    std::cout << "Car速度: " << vehicleSpeed << " km/h" << std::endl;
+    std::cout << "Car速度: " << carSpeed << " km/h" << std::endl;
     std::cout << "Drone速度: " << droneSpeed << " km/h" << std::endl;
     std::cout << "Drone载重: " << droneMaxLoad << " kg" << std::endl;
     std::cout << "Drone电量: " << droneMaxFuel << " h" << std::endl;
