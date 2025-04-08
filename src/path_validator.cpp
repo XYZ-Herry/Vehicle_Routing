@@ -144,6 +144,7 @@ std::pair<bool, std::string> validateStaticPathLegality(
         calculatedTimes.push_back(0.0); // 起始时间为0
         
         if (isDrone) {
+            double l = 0, r = vehicle.maxLoad;
             double currentBattery = vehicle.maxfuel;
             double currentLoad = 0.0;
             double maxLoadDuringTrip = 0.0;
@@ -178,25 +179,31 @@ std::pair<bool, std::string> validateStaticPathLegality(
                     currentBattery = vehicle.maxfuel;
                     currentLoad = 0.0;
                     maxLoadDuringTrip = 0.0;
-                } else {
+                    l = 0, r = vehicle.maxLoad;
+                }
+                else
+                {
                     // 非配送中心，则是任务点，更新载重
                     int taskIndex = problem.taskIdToIndex.at(currentId);
                     const TaskPoint& task = problem.tasks[taskIndex];
                     
                     // 更新载重
-                    currentLoad += task.pickweight;
-                    maxLoadDuringTrip = std::max(maxLoadDuringTrip, currentLoad - task.sendWeight);
+                    l = std::max(l, task.sendWeight - currentLoad);
+                    r = std::min(r, vehicle.maxLoad - currentLoad - task.pickweight + task.sendWeight);
+
+                    currentLoad += task.pickweight - task.sendWeight;
                     
                     // 验证载重是否超过限制
-                    if (currentLoad > vehicle.maxLoad || maxLoadDuringTrip > vehicle.maxLoad) {
+                    if (l > r) {
                         errorMessage += "错误: drone " + std::to_string(vehicleId) + 
                                        " 在任务点 " + std::to_string(currentId) + 
-                                       " 超过载重限制。当前载重: " + std::to_string(currentLoad) + 
+                                       " 超过载重限制。currentLoad: " + std::to_string(currentLoad) + 
+                                       "l和r分别是[" + std::to_string(l) + "," + std::to_string(r) + "]" + 
                                        ", 最大载重: " + std::to_string(vehicle.maxLoad) + "\n";
                         isValid = false;
                     }
                 }
-                
+
                 lastPointId = currentId;
             }
         } else {
@@ -373,7 +380,8 @@ std::pair<bool, std::string> validateDynamicPathLegality(
             // 对drone进行额外的电量和载重验证
             if (isDrone) {
                 // 验证电量是否足够
-                double batteryNeeded = timeNeeded;  // 对drone来说，耗电量等于飞行时间
+                double l = 0, r = vehicle.maxLoad;
+                double batteryNeeded = timeNeeded; // 对drone来说，耗电量等于飞行时间
                 if (batteryNeeded > currentBattery) {
                     errorMessage += "错误: 动态阶段drone " + std::to_string(vehicleId) + 
                                    " 在前往任务点 " + std::to_string(currentId) + 
@@ -390,20 +398,28 @@ std::pair<bool, std::string> validateDynamicPathLegality(
                     currentBattery = vehicle.maxfuel;
                     currentLoad = 0.0;
                     maxLoadDuringTrip = 0.0;
-                } else {
+                    l = 0, r = vehicle.maxLoad;
+                }
+                else
+                {
                     // 非配送中心，则是任务点，更新载重
                     int taskIndex = problem.taskIdToIndex.at(currentId);
                     const TaskPoint& task = problem.tasks[taskIndex];
                     
                     // 更新载重
-                    currentLoad += task.pickweight;
-                    maxLoadDuringTrip = std::max(maxLoadDuringTrip, currentLoad - task.sendWeight);
+                    
+                    // 更新载重
+                    l = std::max(l, task.sendWeight - currentLoad);
+                    r = std::min(r, vehicle.maxLoad - currentLoad - task.pickweight + task.sendWeight);
+
+                    currentLoad += task.pickweight - task.sendWeight;
                     
                     // 验证载重是否超过限制
-                    if (currentLoad > vehicle.maxLoad || maxLoadDuringTrip > vehicle.maxLoad) {
-                        errorMessage += "错误: 动态阶段drone " + std::to_string(vehicleId) + 
+                    if (l > r) {
+                        errorMessage += "错误: drone " + std::to_string(vehicleId) + 
                                        " 在任务点 " + std::to_string(currentId) + 
-                                       " 超过载重限制。当前载重: " + std::to_string(currentLoad) + 
+                                       " 超过载重限制。currentLoad: " + std::to_string(currentLoad) + 
+                                       "l和r分别是[" + std::to_string(l) + "," + std::to_string(r) + "]" + 
                                        ", 最大载重: " + std::to_string(vehicle.maxLoad) + "\n";
                         isValid = false;
                     }
