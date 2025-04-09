@@ -90,8 +90,8 @@ for node_idx in selected_additional_nodes_weighted:
     demand_node = require_nodes.iloc[node_idx]
     task_time = random.randint(1, 1440)  # 任务生成时间
     # 随机生成取货重量和送货重量
-    pickup_weight = round(random.uniform(1, 5), 2)  # 取货重量，1-10kg
-    delivery_weight = round(random.uniform(1, 5), 2)  # 送货重量，1-10kg
+    pickup_weight = round(random.uniform(1, 5), 2)  # 取货重量，1-5kg
+    delivery_weight = round(random.uniform(1, 5), 2)  # 送货重量，1-5kg
     additional_demand_weighted.append([demand_node['序号'], demand_node['X'], demand_node['Y坐标'], pickup_weight, delivery_weight, task_time])
 
 # 对额外需求按任务生成时间排序
@@ -117,8 +117,8 @@ for _, row in all_edges_df.iterrows():
 for node_idx in selected_require_nodes_weighted:
     demand_node = require_nodes.iloc[node_idx]
     # 随机生成取货重量和送货重量
-    pickup_weight = round(random.uniform(1, 5), 2)  # 取货重量，1-10kg
-    delivery_weight = round(random.uniform(1, 5), 2)  # 送货重量，1-10kg
+    pickup_weight = round(random.uniform(1, 5), 2)  # 取货重量，1-5kg
+    delivery_weight = round(random.uniform(1, 5), 2)  # 送货重量，1-5kg
     # 保证序号为整数输出
     output_data_weighted.append(f"{int(demand_node['序号'])} {demand_node['X']} {demand_node['Y坐标']} {pickup_weight} {delivery_weight}")
 
@@ -139,8 +139,17 @@ for demand in additional_demand_weighted:
     output_data_weighted.append(f"{int(demand[0])} {demand[1]} {demand[2]} {demand[3]} {demand[4]} {demand[5]}")
 
 # 输出点与点之间的高峰期车辆速度降低的系数
-# 对于任意两点的早晚都随机生成0.2-1.0之间的系数
+# 获取所有节点（包括需求点、车辆配送中心和无人机配送中心）
+all_task_nodes = list(require_nodes['序号'].values)
+all_nodes = list(set(all_task_nodes + car_start_nodes + UAV_start_nodes))
 
+# 为任意两点之间生成早高峰和晚高峰速度系数
+for i in range(len(all_nodes)):
+    for j in range(i+1, len(all_nodes)):
+        # 随机生成0.2-1.0之间的速度系数
+        morning_coefficient = round(random.uniform(0.2, 1.0), 2)
+        evening_coefficient = round(random.uniform(0.2, 1.0), 2)
+        output_data_weighted.append(f"{all_nodes[i]} {all_nodes[j]} {morning_coefficient} {evening_coefficient}")
 
 # 保存结果到更新后的文件
 output_file_path_weighted = "output_data_weighted.txt"
