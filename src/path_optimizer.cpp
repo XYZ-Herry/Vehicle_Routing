@@ -244,30 +244,46 @@ bool anyTaskUnvisited(const vector<bool>& visited, const vector<int>& taskIds) {
     return false;
 }
 
+
 // 根据时间和路段判断是否处于高峰期，返回速度系数
 double getSpeedFactor(double currentTime, int fromId, int toId, const DeliveryProblem& problem) {
     // 转换为小时数
     double hour = currentTime;
+
+    // 先判断是否在高峰期
+    bool isMorningPeak = (hour >= DeliveryProblem::MORNING_PEAK_START && hour <= DeliveryProblem::MORNING_PEAK_END);
+    bool isEveningPeak = (hour >= DeliveryProblem::EVENING_PEAK_START && hour <= DeliveryProblem::EVENING_PEAK_END);
     
-    // 获取该路段的高峰期系数
+    // 如果不在高峰期，直接返回1.0
+    if (!isMorningPeak && !isEveningPeak) {
+        return 1.0;
+    }
+    
+    // 在高峰期，尝试获取特定路段的高峰期系数
     auto it1 = problem.network.peakFactors.find(fromId);
     if (it1 != problem.network.peakFactors.end()) {
         auto it2 = it1->second.find(toId);
         if (it2 != it1->second.end()) {
-            // 判断是否在早高峰
-            if (hour >= DeliveryProblem::MORNING_PEAK_START && hour <= DeliveryProblem::MORNING_PEAK_END) {
+            // 根据高峰期返回对应系数
+            if (isMorningPeak) {
                 return it2->second.first;  // 早高峰系数
-            }
-            
-            // 判断是否在晚高峰
-            if (hour >= DeliveryProblem::EVENING_PEAK_START && hour <= DeliveryProblem::EVENING_PEAK_END) {
+            } else {
                 return it2->second.second;  // 晚高峰系数
             }
+            // if (isMorningPeak) {
+            //     return DeliveryProblem::DEFAULT_MORNING_PEAK_FACTOR;
+            // } else {
+            //     return DeliveryProblem::DEFAULT_EVENING_PEAK_FACTOR;
+            // }
         }
     }
     
-    // 非高峰期或未找到特定路段系数
-    return 1.0;
+    // 获取不到特定路段系数，使用默认系数
+    if (isMorningPeak) {
+        return DeliveryProblem::DEFAULT_MORNING_PEAK_FACTOR;
+    } else {
+        return DeliveryProblem::DEFAULT_EVENING_PEAK_FACTOR;
+    }
 }
 
 // 计算某辆车路径上每个任务点的完成时间
@@ -912,20 +928,14 @@ double calculateTimeNeeded(
     double totalTime = 0.0;
     double travelTime = currentTime;
     
-    // 高峰期时间段定义
-    const double morningPeakStart = DeliveryProblem::MORNING_PEAK_START;
-    const double morningPeakEnd = DeliveryProblem::MORNING_PEAK_END;
-    const double eveningPeakStart = DeliveryProblem::EVENING_PEAK_START;
-    const double eveningPeakEnd = DeliveryProblem::EVENING_PEAK_END;
-    
-    // 车辆在正常时段的速度
+    // 车辆/无人机在正常时段的速度
     double normalSpeed = vehicle.speed;
     
     // 持续计算直到所有距离都已经行驶
     while (remainingDistance > 0.0001) {
         // 判断当前时刻是否在高峰期
-        bool isMorningPeak = (travelTime >= morningPeakStart && travelTime < morningPeakEnd);
-        bool isEveningPeak = (travelTime >= eveningPeakStart && travelTime < eveningPeakEnd);
+        bool isMorningPeak = (travelTime >= DeliveryProblem::MORNING_PEAK_START && travelTime < DeliveryProblem::MORNING_PEAK_END);
+        bool isEveningPeak = (travelTime >= DeliveryProblem::EVENING_PEAK_START && travelTime < DeliveryProblem::EVENING_PEAK_END);
         bool isPeakHour = isMorningPeak || isEveningPeak;
         
         // 当前速度系数和速度
@@ -938,21 +948,21 @@ double calculateTimeNeeded(
         // 计算到下一个时间段的时间
         double timeToNextPhase = std::numeric_limits<double>::max();
         
-        if (travelTime < morningPeakStart) {
+        if (travelTime < DeliveryProblem::MORNING_PEAK_START) {
             // 当前在早高峰前
-            timeToNextPhase = morningPeakStart - travelTime;
-        } else if (travelTime < morningPeakEnd) {
+            timeToNextPhase = DeliveryProblem::MORNING_PEAK_START - travelTime;
+        } else if (travelTime < DeliveryProblem::MORNING_PEAK_END) {
             // 当前在早高峰中
-            timeToNextPhase = morningPeakEnd - travelTime;
-        } else if (travelTime < eveningPeakStart) {
+            timeToNextPhase = DeliveryProblem::MORNING_PEAK_END - travelTime;
+        } else if (travelTime < DeliveryProblem::EVENING_PEAK_START) {
             // 当前在早高峰后，晚高峰前
-            timeToNextPhase = eveningPeakStart - travelTime;
-        } else if (travelTime < eveningPeakEnd) {
+            timeToNextPhase = DeliveryProblem::EVENING_PEAK_START - travelTime;
+        } else if (travelTime < DeliveryProblem::EVENING_PEAK_END) {
             // 当前在晚高峰中
-            timeToNextPhase = eveningPeakEnd - travelTime;
+            timeToNextPhase = DeliveryProblem::EVENING_PEAK_END - travelTime;
         } else {
             // 当前在晚高峰后
-            timeToNextPhase = 24.0 - travelTime + morningPeakStart; // 到第二天早高峰开始的时间
+            timeToNextPhase = 24.0 - travelTime + DeliveryProblem::MORNING_PEAK_START; // 到第二天早高峰开始的时间
         }
         
         // 以当前速度能行驶的距离

@@ -57,9 +57,6 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             problem.network.distances[node1][node2] = length;
             problem.network.distances[node2][node1] = length;
             
-            // 存储高峰期系数
-            problem.network.peakFactors[node1][node2] = {DeliveryProblem::DEFAULT_MORNING_PEAK_FACTOR, DeliveryProblem::DEFAULT_EVENING_PEAK_FACTOR};
-            problem.network.peakFactors[node2][node1] = {DeliveryProblem::DEFAULT_MORNING_PEAK_FACTOR, DeliveryProblem::DEFAULT_EVENING_PEAK_FACTOR}; // 假设道路是双向的
         }
 
         // 使用 Floyd算法计算所有点对最短路径
@@ -194,6 +191,19 @@ bool loadProblemData(const string &filename, DeliveryProblem &problem)
             problem.vehicleIdToIndex[problem.vehicles[i].id] = i;
         }
         
+        // 读取早高峰和晚高峰速度系数
+        int node1, node2;
+        double morningFactor, eveningFactor;
+        while (file >> node1 >> node2 >> morningFactor >> eveningFactor) {
+            // 存储早高峰和晚高峰速度系数
+            for (int x = 0; x <= 2; x ++ ){
+                for (int y = 0; y <= 2; y ++ ){
+                    problem.network.peakFactors[node1 + x * 10000][node2 + y * 10000] = {morningFactor, eveningFactor};
+                    problem.network.peakFactors[node2 + y * 10000][node1 + x * 10000] = {morningFactor, eveningFactor};  // 双向存储
+                }
+            }
+        }
+        
         return true;
     }
     catch (const std::exception &e)
@@ -302,10 +312,10 @@ void printInitialInfo(const DeliveryProblem& problem) {
     std::cout << "时间权重: " << problem.timeWeight << std::endl;
     std::cout << "延迟任务惩罚系数: " << DeliveryProblem::DEFAULT_DELAY_PENALTY << std::endl;
     std::cout << "早高峰时间: [" << DeliveryProblem::MORNING_PEAK_START << ", " 
-              << DeliveryProblem::MORNING_PEAK_END << "], 速度系数: " 
+              << DeliveryProblem::MORNING_PEAK_END << "], 默认速度系数: " 
               << problem.morningPeakFactor << std::endl;
     std::cout << "晚高峰时间: [" << DeliveryProblem::EVENING_PEAK_START << ", " 
-              << DeliveryProblem::EVENING_PEAK_END << "], 速度系数: " 
+              << DeliveryProblem::EVENING_PEAK_END << "], 默认速度系数: " 
               << problem.eveningPeakFactor << std::endl;
     
     // 输出配送中心信息
